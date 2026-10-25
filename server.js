@@ -42,7 +42,7 @@ const VAPID_FILE = path.join(STATE, 'notifications-cles.json');         // clés
 const REPLAY_DIR = path.join(STATE, 'rejeux');
 const PHOTO_FILE = path.join(STATE, 'photo-du-cube.jpg');                // 🖼️ photo du thème « Ma photo »                          // 🎬 films des cubes (les 6 derniers)
 const KEEP_BACKUPS = 10;
-const GAME_VERSION = '15.3';
+const GAME_VERSION = '15.4';
 const UPDATE_NOTE = 'Nouveaux bruitages au choix dans ⚙️ › Son : sons d’origine du jeu ou pack de l’organisateur.';
 const PREV_DIR = path.join(STATE, 'version-precedente');                // 📦 copie de la version d'avant une mise à jour
 const UPDATE_FLAG = path.join(STATE, 'mise-a-jour-en-cours.json');
@@ -421,6 +421,7 @@ async function serverStatus() {
     disk: diskInfo(), data_size: dataSize(), backups_size: bk.reduce((a, b) => a + b.size, 0),
     tunnel: { mode: tunnelMode, url: tunnelUrl, ok: tunnelOk, since: tunnelSince },
     players_online: uniqueOnline(), sockets: clients.size, queue: typeof waitQueue !== 'undefined' ? waitQueue.length : 0, instance: INSTANCE_NAME || null,
+    guard: guardPublic(),
     peak_today: peakToday, peak: peak.max, peak_at: peak.at,
     accounts: acc, active: act, game: g,
     totals: { http: total.http, rpc: total.rpc, hits: total.hits, ws: total.ws, bytes_in: total.bin, bytes_out: total.bout + total.wsOut,
@@ -1132,9 +1133,11 @@ const esc = t => String(t ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<':
 const PUB_FILE = path.join(STATE, 'reglages-publics.json');
 const PUB_DEFAULT = { email: { provider: '', key: '', from: '', name: 'Le Cube', verify: false, reset: false }, devices: 'full', contact: '', sent: 0, sentDay: '',
   // ℹ️ bouton « À propos » (affiché d'office sur un 2ᵉ serveur, celui qui a un instance.json)
+  // 🔥 protection anti-surchauffe (active d'office sur un 2ᵉ serveur) : seuils, durée avant déclenchement, durée de la pause
+  guard: { on: null, cpu: 92, lag: 300, mem: 96, mins: 2, pause: 15 },
   about: { on: null, name: '', email: '', github: '', kofi: '' } };
 let PUB = JSON.parse(JSON.stringify(PUB_DEFAULT));
-try { const j = JSON.parse(fs.readFileSync(PUB_FILE, 'utf8')); PUB = { ...PUB, ...j, email: { ...PUB.email, ...(j.email || {}) }, about: { ...PUB.about, ...(j.about || {}) } }; } catch (e) {}
+try { const j = JSON.parse(fs.readFileSync(PUB_FILE, 'utf8')); PUB = { ...PUB, ...j, email: { ...PUB.email, ...(j.email || {}) }, about: { ...PUB.about, ...(j.about || {}) }, guard: { ...PUB.guard, ...(j.guard || {}) } }; } catch (e) {}
 const aboutOn = () => !!(PUB.about.name || PUB.about.email || PUB.about.github || PUB.about.kofi) && (PUB.about.on === null || PUB.about.on === undefined ? !!INSTANCE_NAME : !!PUB.about.on);
 const pubSave = () => { try { fs.writeFileSync(PUB_FILE + '.tmp', JSON.stringify(PUB, null, 1)); fs.renameSync(PUB_FILE + '.tmp', PUB_FILE); } catch (e) { noteError('réglages publics', e.message); } };
 const mailReady = () => !!(PUB.email.provider && PUB.email.key && emailOk(PUB.email.from));
@@ -1714,6 +1717,22 @@ const server = http.createServer(async (req, res) => {
         }
         return send(res, 200, pubPublic(true));
       }
+      if (action === 'guard') {                        // 🔥 protection anti-surchauffe
+        const b = body.set;
+        if (b && typeof b === 'object') {
+          const G = PUB.guard, n = (v, lo, hi) => { v = Math.round(+v); return Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : null; };
+          if (b.on !== undefined) G.on = !!b.on;
+          for (const [k, lo, hi] of [['cpu', 50, 100], ['lag', 50, 5000], ['mem', 50, 100], ['mins', 1, 30], ['pause', 1, 120]]) if (b[k] !== undefined && n(b[k], lo, hi) !== null) G[k] = n(b[k], lo, hi);
+          pubSave(); log('🔥 Réglages anti-surchauffe modifiés');
+        }
+        if (body.op === 'reopen') guardReopen('admin');
+        if (body.op === 'test') {
+          const ids = await adminIds();
+          const n = await pushTo(ids, () => ({ title: `🔥 ${INSTANCE_NAME || 'Le Cube'} : test de l’alerte surchauffe`, body: 'C’est ici que tu seras prévenu si le serveur sature (rien n’est arrêté, c’est un essai).' }), { evenOnline: true, tag: 'overload-test', urgent: true });
+          if (!n) return send(res, 400, { error: 'Aucun téléphone à prévenir : active d’abord les notifications dans ⚙️ › 🔔' });
+        }
+        return send(res, 200, guardPublic());
+      }
       if (action === 'mail-test') {
         const to = String(body.to || '').trim().toLowerCase();
         if (!emailOk(to)) return send(res, 400, { error: 'Adresse invalide' });
@@ -1871,6 +1890,8 @@ const server = http.createServer(async (req, res) => {
       return send(res, 404, { error: 'Action inconnue' });
     }
 
+    if (guard.until && ((p.startsWith('/api/rpc/') && p !== '/api/rpc/me') || p === '/api/blocks') && !(await isAdmin(token)))
+      return send(res, 503, { error: 'Serveur saturé : le jeu est en pause quelques minutes', overload: guard.until });
     if (p.startsWith('/api/rpc/')) {
       const fn = p.slice(9);
       if (!RPC.has(fn)) return send(res, 404, { error: 'Fonction inconnue' });
@@ -2490,6 +2511,52 @@ async function idleSweep() {
   }
   if (freed) log(`🚪 ${freed} joueur(s) inactif(s) ont laissé leur place à la file d'attente`);
 }
+// ---------- 🔥 Protection anti-surchauffe : si le PC est à bout de souffle trop longtemps, le jeu se met en pause ----------
+const eldG = monitorEventLoopDelay({ resolution: 20 }); eldG.enable();
+const guard = { bad: 0, until: 0, reason: '', since: 0, trips: [], last: null };
+const guardOn = () => PUB.guard.on === null || PUB.guard.on === undefined ? !!INSTANCE_NAME : !!PUB.guard.on;
+function guardCheck() {
+  const lag = Math.max(0, Math.round(eldG.mean / 1e6 - 20)); eldG.reset();
+  const mem = Math.round(100 * (1 - os.freemem() / os.totalmem()));
+  guard.last = { cpu: Math.round(cpuPct), lag, mem, at: Date.now() };
+  if (guard.until && Date.now() >= guard.until) guardReopen('auto');
+  if (!guardOn() || guard.until || loadTest?.running || !clients.size) { guard.bad = 0; return; }
+  const G = PUB.guard;
+  const why = cpuPct >= G.cpu ? `processeur du PC à ${Math.round(cpuPct)} %`
+    : lag >= G.lag ? `le jeu rame (${lag} ms de retard)`
+    : mem >= G.mem ? `mémoire du PC pleine à ${mem} %` : '';
+  if (!why) { guard.bad = 0; return; }
+  guard.bad++;
+  if (guard.bad * 5 >= G.mins * 60) guardTrip(why).catch(e => noteError('surchauffe', e.message));
+}
+setInterval(guardCheck, 5000).unref();
+const overloadMsg = () => JSON.stringify({ type: '__overload', until: guard.until, reason: guard.reason });
+async function guardTrip(why, manual) {
+  const now = Date.now();
+  guard.trips = guard.trips.filter(t => now - t < 3 * 3600e3); guard.trips.push(now);
+  const mins = Math.min(120, Math.round(PUB.guard.pause * 2 ** (guard.trips.length - 1)));   // pauses de plus en plus longues si ça recommence
+  guard.until = now + mins * 60e3; guard.reason = why; guard.since = now; guard.bad = 0;
+  log(`🔥 Serveur saturé (${why}) : jeu mis en pause pour les joueurs pendant ${mins} min`);
+  secLog.push({ at: now, type: 'overload', info: why }); if (secLog.length > 1000) secLog.splice(0, secLog.length - 1000);
+  const msg = overloadMsg();
+  let kicked = 0;
+  for (const [ws, c] of clients) if (!c.admin) { c.idleOut = true; kicked++; try { ws.send(msg); } catch (e) {} ws.close(4006, 'saturé'); }
+  for (const q of waitQueue.splice(0)) { try { q.ws.send(msg); } catch (e) {} q.ws.close(4006, 'saturé'); }
+  notifyAdmins({ type: '__presalert', kind: 'overload', title: '🔥 Serveur saturé', body: `${why} · jeu en pause ${mins} min` });
+  const ids = await adminIds();
+  if (ids.length) await pushTo(ids, () => ({ title: `🔥 ${INSTANCE_NAME || 'Le Cube'} : serveur saturé, jeu en pause`,
+    body: `${why} · ${kicked} joueur${kicked > 1 ? 's' : ''} déconnecté${kicked > 1 ? 's' : ''} · réouverture automatique dans ${mins} min (ou 👑 › Serveur)` }),
+    { evenOnline: true, tag: 'overload', urgent: true });
+}
+function guardReopen(by) {
+  if (!guard.until) return;
+  guard.until = 0; guard.reason = ''; guard.bad = 0;
+  log(by === 'auto' ? '🔥 Fin de la pause : le jeu est rouvert aux joueurs' : '🔥 Jeu rouvert par l’organisateur');
+}
+function guardPublic() {
+  return { on: guardOn(), ...PUB.guard, onWanted: PUB.guard.on, paused: !!guard.until, until: guard.until || null, reason: guard.reason, since: guard.since || null,
+    trips: guard.trips.length, last: guard.last, building: guard.bad * 5 };
+}
 wss.on('connection', async (ws, req) => {
   const token = new URL(req.url, 'http://x').searchParams.get('token');
   const uid = await userOf(token).catch(() => null);
@@ -2502,6 +2569,7 @@ wss.on('connection', async (ws, req) => {
   }
   // Limite de joueurs connectés en même temps (réglable dans 👑). L'organisateur passe toujours,
   // et un joueur déjà connecté peut ouvrir un 2e onglet.
+  if (!me.is_admin && guard.until) { try { ws.send(overloadMsg()); } catch (e) {} ws.close(4006, 'saturé'); return; }
   if (!me.is_admin) {
     const lim = await maxOnline();
     const ids = onlineIds();

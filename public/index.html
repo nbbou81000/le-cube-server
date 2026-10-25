@@ -528,6 +528,15 @@
   <p id="fullRetryTxt" class="muted" data-en="New attempt every 20 seconds: just leave this page open.">Nouvel essai toutes les 20 secondes : laisse simplement cette page ouverte.</p>
   <div class="btns" style="justify-content:center"><button id="fullRetry" class="primary" data-en="Try again now">Réessayer maintenant</button></div>
 </div></div>
+<div id="overBox" class="modal" style="z-index:30"><div class="card" style="text-align:center;width:min(400px,100%)">
+  <p style="font-size:38px;margin:6px 0">🥵</p>
+  <div style="font-size:19px;font-weight:800;margin-bottom:8px" data-en="Sorry, the server is overloaded!">Désolé, le serveur sature !</div>
+  <p data-en="The little computer hosting the game is out of breath, so I’m pausing the game for a few minutes to let it recover. I apologize for the interruption! Your progress is saved.">Le petit PC qui héberge le jeu est à bout de souffle : je mets le jeu en pause quelques minutes pour qu’il récupère. Toutes mes excuses pour l’interruption ! Ta progression est bien enregistrée.</p>
+  <p class="muted" style="margin:4px 0 0" data-en="— the organizer">— l’organisateur</p>
+  <p id="overWhen" style="font-weight:700;margin:12px 0 4px"></p>
+  <p class="muted" style="margin:0" data-en="Keep this page open: it will reconnect by itself.">Garde cette page ouverte : elle se reconnectera toute seule.</p>
+  <div class="btns" style="justify-content:center"><button id="overRetry" data-en="Try again now">Réessayer maintenant</button></div>
+</div></div>
 <div id="idleBox" class="modal"><div class="card" style="text-align:center;width:min(380px,100%)">
   <p style="font-size:34px;margin:6px 0">💤</p>
   <div style="font-size:18px;font-weight:800;margin-bottom:6px" data-en="Spot given to a waiting player">Place laissée à un joueur qui attendait</div>
@@ -589,7 +598,8 @@ if (EN) {
 }
 // Messages du serveur (toujours écrits en français) traduits pour les joueurs anglophones
 const ERR_EN = {
-  'Code expiré : demande un nouveau code': 'Code expired: ask for a new one', 'Demande d’abord ton code par e-mail': 'First ask for your code by e-mail', 'Trop d’essais : demande un nouveau code': 'Too many tries: ask for a new code', 'Code incorrect': 'Wrong code',
+  'Code expiré : demande un nouveau code': 'Code expired: ask for a new one', 'Serveur saturé : le jeu est en pause quelques minutes': 'Server overloaded: the game is paused for a few minutes',
+  'Aucun téléphone à prévenir : active d’abord les notifications dans ⚙️ › 🔔': 'No phone to alert: first turn on notifications in ⚙️ › 🔔', 'Demande d’abord ton code par e-mail': 'First ask for your code by e-mail', 'Trop d’essais : demande un nouveau code': 'Too many tries: ask for a new code', 'Code incorrect': 'Wrong code',
   'Trop de codes demandés : réessaie dans un quart d’heure': 'Too many codes requested: try again in 15 minutes', 'Trop de demandes : réessaie dans une heure': 'Too many requests: try again in an hour',
   'Cet e-mail est déjà utilisé : connecte-toi (ou « Mot de passe oublié ? »)': 'This e-mail is already used: log in (or “Forgot password?”)',
   'Limite d’e-mails du jour atteinte : réessaie demain': 'Daily e-mail limit reached: try again tomorrow', 'Service d’e-mails injoignable': 'E-mail service unreachable',
@@ -6798,6 +6808,10 @@ async function renderAdminServer() {
       <p class="muted" style="margin:4px 0 6px">${L('Pour un serveur ouvert à des inconnus : un code envoyé par e-mail à l’inscription (vraie adresse obligatoire) et « Mot de passe oublié ? » en libre-service. Il faut un compte gratuit Brevo (300 e-mails par jour) ou Resend.',
         'For a server open to strangers: a code sent by e-mail at sign-up (real address required) and self-service “Forgot password?”. Needs a free Brevo (300 e-mails a day) or Resend account.')}</p>
       <div id="svMailBody" class="muted">${L('Chargement…', 'Loading…')}</div></div>
+    <div class="mission" id="svGuard" style="margin-top:10px;border-color:#ff7a4d88"><b>🔥 ${L('Protection anti-surchauffe', 'Overload protection')}</b>
+      <p class="muted" style="margin:4px 0 6px">${L('Si le PC est à bout de souffle trop longtemps, le jeu se met en pause pour les joueurs : ils voient un message d’excuse et se reconnectent tout seuls à la réouverture, et tu reçois une notification. Toi, tu restes connecté. Si ça recommence dans les 3 heures, la pause suivante dure deux fois plus longtemps.',
+        'If the PC is out of breath for too long, the game pauses for players: they see an apology and reconnect by themselves when it reopens, and you get a notification. You stay connected. If it happens again within 3 hours, the next pause lasts twice as long.')}</p>
+      <div id="svGuardBody"></div></div>
     ${st.vps ? '' : `<label>📦 ${L('Mise à jour du jeu', 'Game update')} · ${L('version', 'version')} ${esc(st.game_version || '?')}</label>
     <p class="muted" style="margin:0 0 6px">${L('Choisis le zip de la mise à jour (le-cube-serveur.zip) : le serveur fait une sauvegarde, remplace les fichiers du jeu (jamais la partie, la musique, les films ni la photo) et redémarre. Faisable depuis le téléphone.',
       'Choose the update zip (le-cube-serveur.zip): the server makes a backup, replaces the game files (never the game itself, the music, the films or the photo) and restarts. Works from a phone.')}</p>
@@ -6835,6 +6849,7 @@ async function renderAdminServer() {
   if ($('svFullBody')) renderFullCopy();
   renderDashBox();
   renderMailBox();
+  renderGuardBox(st.guard);
   $('svRestore').onclick = () => $('svFile').click();
   $('svFile').onchange = async e => {
     const f = e.target.files[0]; if (!f) return;
@@ -6897,6 +6912,29 @@ async function renderAdminServer() {
 }
 
 /* ---------- 👑 › 📈 Tableau de bord (page à part) ---------- */
+function renderGuardBox(g) {
+  const box = $('svGuardBody'); if (!box || !g) return;
+  const L0 = g.last || {};
+  box.innerHTML = `${g.paused ? `<p style="margin:0 0 6px;color:#ff9b73;font-weight:700">⏸ ${L(`Jeu en pause depuis ${fmtDate(g.since)} : ${esc(g.reason)}. Réouverture automatique à ${new Date(g.until).toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit' })}.`,
+        `Game paused since ${fmtDate(g.since)}: ${esc(g.reason)}. Automatic reopening at ${new Date(g.until).toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit' })}.`)}</p>
+      <div class="btns" style="margin-top:0"><button id="gdReopen" class="primary small">▶️ ${L('Rouvrir le jeu maintenant', 'Reopen the game now')}</button></div>` : ''}
+    <div class="muted" style="margin-bottom:4px">${L('En ce moment', 'Right now')} : 🧠 ${L0.cpu ?? '—'} % · 🐢 ${L0.lag ?? '—'} ms · 💾 ${L0.mem ?? '—'} %${g.building ? ` · <b style="color:#ffb36b">⚠️ ${L(`seuil dépassé depuis ${g.building} s`, `threshold exceeded for ${g.building} s`)}</b>` : ''}</div>
+    <label class="switch"><span>${L('Protection active', 'Protection on')}</span><input type="checkbox" class="chk" id="gdOn" ${g.on ? 'checked' : ''}></label>
+    <div class="row" style="gap:6px;flex-wrap:wrap;align-items:center;font-size:13px">
+      <span>🧠 ${L('Processeur du PC ≥', 'PC processor ≥')}</span><input id="gdCpu" type="number" min="50" max="100" value="${g.cpu}" style="width:64px"><span>%</span>
+      <span>🐢 ${L('ou jeu en retard ≥', 'or game lag ≥')}</span><input id="gdLag" type="number" min="50" max="5000" value="${g.lag}" style="width:72px"><span>ms</span>
+      <span>💾 ${L('ou mémoire ≥', 'or memory ≥')}</span><input id="gdMem" type="number" min="50" max="100" value="${g.mem}" style="width:64px"><span>%</span></div>
+    <div class="row" style="gap:6px;flex-wrap:wrap;align-items:center;font-size:13px;margin-top:6px">
+      <span>${L('pendant', 'for')}</span><input id="gdMins" type="number" min="1" max="30" value="${g.mins}" style="width:56px"><span>${L('min d’affilée → pause de', 'min in a row → pause of')}</span>
+      <input id="gdPause" type="number" min="1" max="120" value="${g.pause}" style="width:56px"><span>min</span></div>
+    <div class="btns"><button id="gdSave" class="small primary">💾 ${L('Enregistrer', 'Save')}</button><button id="gdTest" class="small">🔔 ${L('Tester la notification', 'Test the notification')}</button></div>`;
+  $('gdSave').onclick = async () => {
+    const set = { on: $('gdOn').checked, cpu: +$('gdCpu').value, lag: +$('gdLag').value, mem: +$('gdMem').value, mins: +$('gdMins').value, pause: +$('gdPause').value };
+    const r = await act(() => net.guard({ set }), L('🔥 Protection enregistrée', '🔥 Protection saved')); if (r && r !== true) renderGuardBox(r);
+  };
+  $('gdTest').onclick = () => act(() => net.guard({ op: 'test' }), L('🔔 Notification de test envoyée sur ton téléphone', '🔔 Test notification sent to your phone'));
+  if ($('gdReopen')) $('gdReopen').onclick = async () => { const r = await act(() => net.guard({ op: 'reopen' }), L('▶️ Jeu rouvert', '▶️ Game reopened')); if (r && r !== true) renderGuardBox(r); };
+}
 async function renderMailBox() {
   const box = $('svMailBody'); if (!box) return;
   let c; try { c = await net.pubSettings(); } catch (e) { box.textContent = '⚠️ ' + e.message; return; }
@@ -7541,6 +7579,23 @@ async function createHome() {
   api = makeApi(call, call);
   let ws = null, handler = () => {}, presenceCb = () => {}, stopped = false, lastNames = [], full = null, retryTimer = null, queueStart = 0;
   $('idleBack').onclick = () => location.reload();
+  // 🥵 serveur saturé : message d'excuse, puis reconnexion automatique à la réouverture (étalée pour ne pas tout relancer d'un coup)
+  let overTimer = null;
+  function showOverload(until) {
+    ready = false;
+    $('full').classList.remove('open');
+    const at = Math.max(Date.now() + 60e3, +until || 0) + Math.random() * 90e3;
+    const tick = () => {
+      const left = Math.max(0, Math.round((at - Date.now()) / 60e3));
+      $('overWhen').textContent = L(`Réouverture prévue vers ${new Date(at).toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit' })} (dans ${left || '< 1'} min)`,
+                                    `Reopening around ${new Date(at).toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit' })} (in ${left || '< 1'} min)`);
+      if (Date.now() >= at) location.reload();
+    };
+    clearInterval(overTimer); tick(); overTimer = setInterval(tick, 15000);
+    document.title = '🥵 ' + L('Pause · Le Cube', 'Paused · The Cube');
+    $('overBox').classList.add('open');
+  }
+  $('overRetry').onclick = () => location.reload();
   // 📱 une fiche d'appareil par visite, envoyée une fois entré dans le jeu (pas pendant la file d'attente)
   function sendDevice() {
     connect.devSent = true;
@@ -7588,6 +7643,7 @@ async function createHome() {
         if (firstTime) $('full').classList.add('open');
       }
       else if (m.type === '__idle') { stopped = true; $('idleBox').classList.add('open'); }
+      else if (m.type === '__overload') { stopped = true; showOverload(m.until); }
       else if (m.type === '__full') {
         full = m;
         $('queueBox').classList.add('hidden'); $('fullRetryTxt').classList.remove('hidden'); $('fullRetry').classList.remove('hidden');
@@ -7747,6 +7803,7 @@ async function createHome() {
     pubSettings: set => post('/api/admin/public-settings', set ? { set } : {}),
     mailTest: to => post('/api/admin/mail-test', { to }),
     authConfig: () => post('/api/auth-config'),
+    guard: b => post('/api/admin/guard', b || {}),
     dashRollback: () => post('/api/admin/dash-rollback'),
     async dashUpload(file) {
       let r;

@@ -53,6 +53,7 @@ This repository lets you **run your own copy on your own computer**: an old lapt
 - Game rules, prices, recipes, events, announcements, music radio (upload your MP3/M4A), custom sound pack (WAV).
 - An **autopilot** 🧭 that keeps the game at the right pace for a target end date.
 - Server health (CPU, memory, traffic, players) with live charts, a built-in load test.
+- **Overload protection** 🔥: if the PC stays overloaded (CPU, game lag or memory above your thresholds for a couple of minutes), the game pauses for players with an apology message and automatic reconnection, and you get a phone notification.
 - Nightly backups, one-click **rescue copy** of everything, and **updates from a zip** (even from your phone).
 - An optional **admin dashboard** web page (stats, economy, security log, devices, read-only database explorer).
 - Optional **e-mail** verification codes and "forgot password?" (via the free tier of Brevo or Resend), a privacy page, self-service account deletion.
@@ -187,6 +188,8 @@ With Brevo:
 - An optional **ℹ️ About** button (your name, contact e-mail, links) can be enabled in the same panel.
 
 ### 7.3 Limits
+Turn on **🔥 Overload protection** in 👑 › Server (on by default for a second server with an `instance.json`). Defaults: pause when the PC processor stays ≥ 92 %, the game lags ≥ 300 ms, or memory is ≥ 96 % for 2 minutes in a row; players are disconnected with an apology and reconnect automatically after 15 minutes (twice as long if it happens again within 3 hours). You stay connected and can reopen at any time. Use **Test the notification** to check your phone gets the alert.
+
 Set **players online at the same time** (👑 › Players and access) to something your PC handles easily, e.g. **15–20** to start, then raise it while watching the server charts. Turn on **approve automatically** with a sensible maximum number of accounts.
 
 ## 8. Security checklist
