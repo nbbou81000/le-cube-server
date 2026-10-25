@@ -1322,6 +1322,35 @@ end $$;
 
 -- Utiliser un artefact.
 --   dir : laser, dynamite, vrille, pilier = sens du regard 0..5 (+x, -x, +y, -y, +z, -z) ; scie = axe de la ligne (0 = x, 1 = y, 2 = z)
+-- 🧅 l'Écorce du Monde ne donne plus le contenu de la couche : ce qui y était caché s'enfonce plus profond (sinon la partie s'emballe)
+alter table public.game add column if not exists peel_at timestamptz;
+create or replace function public._relocate_deeper(layer int, s int) returns int
+language plpgsql security definer set search_path = public as $$
+declare r record; lo int := layer + 1; hi int := s - layer - 2; tries int; c int; moved int := 0;
+begin
+  for r in select a.i from public.artifacts a where a.found_by is null and public._depth(a.i, s) = layer loop
+    c := null; tries := 0;
+    while hi >= lo and tries < 12 loop
+      c := (lo + floor(random() * (hi - lo + 1)))::int + (lo + floor(random() * (hi - lo + 1)))::int * s + (lo + floor(random() * (hi - lo + 1)))::int * s * s;
+      exit when not public._is_core(c, s) and not exists (select 1 from public.blocks b where b.i = c and b.hp = 0)
+        and not exists (select 1 from public.artifacts a2 where a2.i = c) and not exists (select 1 from public.chests h where h.i = c);
+      c := null; tries := tries + 1;
+    end loop;
+    if c is null then delete from public.artifacts where i = r.i; else update public.artifacts set i = c where i = r.i; moved := moved + 1; end if;
+  end loop;
+  for r in select h.i from public.chests h where h.opened_by is null and public._depth(h.i, s) = layer loop
+    c := null; tries := 0;
+    while hi >= lo and tries < 12 loop
+      c := (lo + floor(random() * (hi - lo + 1)))::int + (lo + floor(random() * (hi - lo + 1)))::int * s + (lo + floor(random() * (hi - lo + 1)))::int * s * s;
+      exit when not public._is_core(c, s) and not exists (select 1 from public.blocks b where b.i = c and b.hp = 0)
+        and not exists (select 1 from public.artifacts a2 where a2.i = c) and not exists (select 1 from public.chests h2 where h2.i = c);
+      c := null; tries := tries + 1;
+    end loop;
+    if c is null then delete from public.chests where i = r.i; else update public.chests set i = c where i = r.i; moved := moved + 1; end if;
+  end loop;
+  return moved;
+end $$;
+
 create or replace function public.use_artifact(k text, center int, dir int default 0)
 returns json language plpgsql security definer set search_path = public as $$
 declare
@@ -1496,6 +1525,9 @@ begin
     -- 🧅 arrache toute la couche la plus extérieure qui reste (jamais le cœur)
     core_d := case when s % 2 = 0 then s/2 - 1 else (s-1)/2 - 1 end;   -- première couche du cœur
     if not sealed then raise exception 'Il ne reste plus que le cœur : l''Écorce du Monde ne peut pas l''arracher'; end if;
+    if g.peel_at > now() - interval '6 hours' then
+      raise exception 'L''Écorce du Monde se recharge : prochaine possible dans % min', ceil(extract(epoch from g.peel_at + interval '6 hours' - now()) / 60)::int;
+    end if;
     select min(l.dp) into layer
       from generate_series(0, core_d - 1) as l(dp) left join public.layer_done dd on dd.d = l.dp
      where coalesce(dd.n, 0) < (s - 2*l.dp)::bigint ^ 3 - greatest(s - 2*l.dp - 2, 0)::bigint ^ 3;
@@ -1503,25 +1535,11 @@ begin
     -- plus besoin d'écrire chaque bloc : toute la couche (et celles au-dessus) est marquée « arrachée »
     npeel := ((s - 2*layer)::bigint ^ 3 - greatest(s - 2*layer - 2, 0)::bigint ^ 3)::int
               - coalesce((select n from public.layer_done where d = layer), 0)::int;
-    update public.game gm set peeled = greatest(gm.peeled, layer + 1) where gm.id = 1;
-    with arts as (
-      update public.artifacts a set found_by = uid, found_at = now()
-       where a.found_by is null and public._depth(a.i, s) = layer
-      returning a.i, a.kind
-    )
-    select coalesce(jsonb_agg(jsonb_build_object('i', arts.i, 'kind', arts.kind)), '[]'::jsonb) into found_list from arts;
+    update public.game gm set peeled = greatest(gm.peeled, layer + 1), peel_at = now() where gm.id = 1;
+    -- ce que cachait la couche (artefacts, coffres, pièges) s'enfonce dans les couches plus profondes : rien n'est donné d'un coup
+    perform public._relocate_deeper(layer, s);
     insert into public.layer_done as ld (d, n) values (layer, (s - 2*layer)::bigint ^ 3 - greatest(s - 2*layer - 2, 0)::bigint ^ 3)
       on conflict (d) do update set n = excluded.n;
-    -- les pièges de la couche sont désamorcés ; les artefacts vont dans le sac
-    for e in select x->>'kind' as kind from jsonb_array_elements(found_list) x where not public._is_trap(x->>'kind') loop
-      perform public._add(uid, e.kind, 1); nf := nf + 1;
-    end loop;
-    found_list := (select coalesce(jsonb_agg(x), '[]'::jsonb) from jsonb_array_elements(found_list) x where not public._is_trap(x->>'kind'));
-    -- les coffres de la couche s'ouvrent aussi (les faux sont désamorcés)
-    for e in select c.i from public.chests c where c.opened_by is null and public._depth(c.i, s) = layer loop
-      chx := public._chest_open(e.i, uid, (ev->>'coffre')::numeric::int);
-      if chx is not null and chx <> 'piege' then chests := chests || jsonb_build_array(jsonb_build_object('i', e.i, 'got', chx)); end if;
-    end loop;
     -- pas de butin bloc par bloc (l'économie exploserait) : une prime fixe à la place
     bonus := 50;
     perform public._add(uid, 'or', bonus);

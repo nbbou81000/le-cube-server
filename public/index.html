@@ -677,6 +677,7 @@ function trServer(msg) {
   if (ERR_EN[msg]) return ERR_EN[msg];
   let m;
   if ((m = msg.match(/^Pas assez de « (.+) »$/))) return `Not enough ${ITEM(m[1]).name}`;
+  if ((m = msg.match(/^L'Écorce du Monde se recharge : prochaine possible dans (\d+) min$/))) return `The World Peel is recharging: next one possible in ${m[1]} min`;
   if ((m = msg.match(/^📜 Mission accomplie ! \+(\d+) 🪙$/))) return `📜 Mission complete! +${m[1]} 🪙`;
   if ((m = msg.match(/^🎯 Objectif de la semaine atteint ! \+(\d+) 🪙$/))) return `🎯 Weekly goal reached! +${m[1]} 🪙`;
   if ((m = msg.match(/^Limite atteinte : (\d+) joueurs maximum/))) return `Limit reached: ${m[1]} players maximum (raise it in 👑 or remove a player)`;
@@ -706,7 +707,7 @@ const ARTIFACTS_EN = {
   sonde: ['Probe', 'Shows for 60 s which blocks hide gold or materials around the targeted block.'],
   aimant: ['Magnet', 'For 3 minutes, you find 3 times more gold and materials.'],
   cor: ['Rallying Horn', 'For 60 s, every connected player hits twice as hard.'],
-  ecorce: ['World Peel', 'Legendary. Rips off the whole outermost remaining layer at once (never the core). +50 🪙.'],
+  ecorce: ['World Peel', 'Legendary. Rips off the whole outermost remaining layer at once (never the core). What it hid sinks into deeper layers. +50 🪙. Recharges: one use every 6 hours for the whole server.'],
   oeil: ['Eye of the Cube', 'Legendary. For 5 minutes, every player sees where all the artifacts are hidden.'],
   dynamite: ['Dynamite', 'Rips off a 5×5 slab, 2 blocks deep, on the face you are looking at (50 blocks).'],
   trefle: ['Four-leaf clover', 'For 5 minutes, every block you break by hand may hide a bonus artifact.'],
@@ -734,7 +735,7 @@ const ARTIFACTS = {
   sonde:     { icon: '🔍', name: 'Sonde',        desc: 'Montre pendant 60 s les blocs qui cachent de l’or ou des matériaux autour du bloc visé.', target: true },
   aimant:    { icon: '🧲', name: 'Aimant',       desc: 'Pendant 3 minutes, tu trouves 3 fois plus d’or et de matériaux.', target: false },
   cor:       { icon: '📯', name: 'Cor de ralliement', desc: 'Pendant 60 s, tous les joueurs connectés frappent deux fois plus fort.', target: false },
-  ecorce:    { icon: '🧅', name: 'Écorce du Monde', desc: 'Légendaire. Arrache d’un coup toute la couche la plus extérieure qui reste (jamais le cœur). +50 🪙.', target: false, rare: true },
+  ecorce:    { icon: '🧅', name: 'Écorce du Monde', desc: 'Légendaire. Arrache d’un coup toute la couche la plus extérieure qui reste (jamais le cœur). Ce qu’elle cachait s’enfonce dans les couches plus profondes. +50 🪙. Se recharge : une utilisation toutes les 6 heures pour tout le serveur.', target: false, rare: true },
   oeil:      { icon: '👁️', name: 'Œil du Cube',  desc: 'Légendaire. Pendant 5 minutes, tous les joueurs voient où se cachent tous les artefacts.', target: false, rare: true },
   // version 8 : classiques, puissants, très puissants
   dynamite:  { icon: '🧨', name: 'Dynamite',     desc: 'Arrache une plaque de 5×5 sur 2 blocs de profondeur, sur la face que tu regardes (50 blocs).', target: true, tier: 1 },
