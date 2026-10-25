@@ -405,8 +405,7 @@ create index if not exists artifacts_open on public.artifacts (kind) where found
 
 insert into public.game (id) values (1) on conflict (id) do nothing;
 insert into public.treasure (id) values (1) on conflict (id) do nothing;
--- recalcule le compteur à chaque installation / mise à jour
-update public.game set destroyed = (select count(*) from public.blocks where hp = 0) where id = 1;
+-- (le compteur de blocs détruits est recalculé tout à la fin de ce fichier)
 
 
 -- ---------------------------------------------------------------------
@@ -4024,3 +4023,11 @@ begin
 end $$;
 
 -- Fin. Tu peux fermer cette page.
+
+-- recalcule le compteur de blocs détruits à chaque démarrage / mise à jour.
+-- Les couches arrachées par l'Écorce du Monde ne sont pas enregistrées bloc par bloc : on compte leur volume entier,
+-- plus les blocs cassés dans les couches restantes.
+update public.game g set destroyed =
+    (g.size::bigint ^ 3 - greatest(g.size - 2 * coalesce(g.peeled, 0), 0)::bigint ^ 3)::bigint
+  + (select count(*) from public.blocks b where b.hp = 0 and public._depth(b.i, g.size) >= coalesce(g.peeled, 0))
+  where g.id = 1;
