@@ -1,0 +1,52 @@
+LE CUBE — SERVEUR MAISON
+========================
+
+Ordre des opérations (tout se fait par double-clic) :
+
+  1-INSTALLER.bat                 une seule fois (vérifie Node.js, télécharge le tunnel)
+  2-DEMARRER.bat                  lance le jeu ; laisser la fenêtre ouverte
+  3-DEMARRAGE-AUTO-ACTIVER.bat    facultatif : relance le jeu à chaque démarrage de Windows
+  4-DEMARRAGE-AUTO-DESACTIVER.bat annule l'étape précédente
+  5-OUVRIR-LE-JEU.bat             ouvre le jeu dans le navigateur de ce PC
+
+Fichiers créés automatiquement :
+  ADRESSE-DU-JEU.txt   l'adresse Internet à envoyer aux joueurs
+  donnees\             la partie en cours (NE PAS SUPPRIMER)
+  sauvegardes\         une sauvegarde chaque nuit à 5 h, les 10 dernières
+  musique\             les morceaux (MP3, M4A) envoyés depuis 👑 › Musique (radio)
+  historique-serveur.json   les courbes de 📊 (24 heures et 7 jours)
+  rejeux\              les films des 6 derniers cubes (🏆 › Hall of fame › 🎬)
+  notifications-cles.json   clés secrètes des notifications sur téléphone
+                            (à garder : sans elles, chacun doit réactiver ⚙️ › 🔔)
+
+Chaque nuit à 4 h 45, la base est rangée (quelques secondes) pour rester rapide.
+
+Mise à jour (depuis la version 10.4) : dans le jeu, 👑 › Serveur ›
+« 📦 Installer une mise à jour… » et choisis le zip, même depuis ton téléphone.
+Le serveur sauvegarde la partie, remplace les fichiers et redémarre tout seul.
+« ↩️ Revenir à la version d'avant » annule la dernière mise à jour (la copie
+est gardée dans le dossier « version-precedente »).
+
+Mise à jour à la main (si besoin) : remplace les fichiers de ce dossier par les nouveaux (server.js,
+schema.sql, public\index.html…), SANS toucher à « donnees », « sauvegardes »,
+« musique », « rejeux » ni notifications-cles.json, puis relance 2-DEMARRER.bat.
+La partie est conservée. Remplace aussi le dossier node_modules et
+package.json par ceux du nouveau zip (la version 10 en a besoin pour les
+notifications sur téléphone).
+
+Copie de secours complète (si le PC tombe en panne) : dans le jeu, 👑 › Serveur ›
+« 🛟 Copie de secours complète » télécharge sur ton téléphone un zip de TOUT le jeu
+(programme, partie, comptes, réglages, clés, musique, films, sauvegardes). Pour tout
+relancer ailleurs : dézipper, 1-INSTALLER.bat puis 2-DEMARRER.bat (voir le fichier
+RELANCER-SUR-UN-NOUVEAU-PC.txt dans le zip). Pense à en refaire une de temps en temps.
+
+Deuxième serveur sur le même PC : copier le dossier, et y mettre un fichier
+instance.json (voir instance.example.json et README.md). Les deux serveurs sont
+complètement séparés (partie, comptes, réglages).
+Les réglages d'e-mails et de confidentialité sont dans 👑 › Serveur › ✉️
+(fichier reglages-publics.json, contient la clé Brevo : à ne pas partager).
+
+Écran télé : sur une télé ou un vieil écran, ouvre l'adresse du jeu suivie
+de /?tv=1 et connecte-toi : le cube tourne tout seul avec le classement.
+
+Le mode d'emploi complet (en anglais) est dans README.md.

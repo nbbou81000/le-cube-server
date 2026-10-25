@@ -1,0 +1,35 @@
+# dependencies and downloaded tools
+node_modules/
+cloudflared
+cloudflared.exe
+
+# instance-specific settings (copy instance.example.json)
+instance.json
+
+# runtime data — NEVER commit (game, accounts, secrets)
+donnees/
+donnees-ancien-*/
+sauvegardes/
+musique/
+rejeux/
+bruitages/
+tableau-de-bord/
+version-precedente/
+restaurer*.tar.gz
+restaurer-envoi.tmp
+verif-server.mjs
+mise-a-jour-en-cours.json
+derniere-copie-complete.json
+tunnel-jeton.txt
+trmnl-cle.txt
+notifications-cles.json
+reglages-publics.json
+ADRESSE-DU-JEU.txt
+photo-du-cube.jpg
+historique-serveur.json
+stats-serveur.json
+alertes-connexion.json
+journal-*.json
+record-*.json
+*.log
+le-cube-*.zip

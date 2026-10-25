@@ -1,0 +1,1184 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Le Cube · Tableau de bord</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='4' y='10' width='56' height='44' rx='8' fill='%23f0603f'/><rect x='11' y='17' width='42' height='30' rx='3' fill='%23fbf8f1'/><rect x='16' y='34' width='6' height='9' fill='%232b2722'/><rect x='26' y='26' width='6' height='17' fill='%232b2722'/><rect x='36' y='30' width='6' height='13' fill='%232b2722'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* Même habillage que le « Palmarès des créateurs TRMNL » : papier, encre, accent orange, police Archivo */
+:root{
+  --paper:#f3efe6; --sheet:#fbf8f1; --ink:#2b2722; --ink2:#6f675c; --rule:#e2dbcd; --rule2:#d0c8b8;
+  --grey:#a59d90; --accent:#f0603f; --accent2:#ff9280; --accent-soft:#fbe0d3; --accent-ink:#c2442a; --on-accent:#fff;
+  --sage:#4b876f; --indigo:#5463b8; --mustard:#d6a228; --sky:#3f86b5; --plum:#9a4f86; --clay:#874b4b;
+  --font:'Archivo',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  box-sizing:border-box;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#1f2328; --sheet:#282d33; --ink:#dfe3e8; --ink2:#9aa3ad; --rule:#363c44; --rule2:#465059;
+  --grey:#77818b; --accent:#f07a5a; --accent2:#ff9280; --accent-soft:#3b2a26; --accent-ink:#ff9d85; --on-accent:#1f2328;
+  --sage:#699b87; --indigo:#7f8ce0; --mustard:#e4b545; --sky:#63a6d4; --plum:#c27bb0; --clay:#b07a7a;
+}}
+:root[data-theme="dark"]{
+  --paper:#1f2328; --sheet:#282d33; --ink:#dfe3e8; --ink2:#9aa3ad; --rule:#363c44; --rule2:#465059;
+  --grey:#77818b; --accent:#f07a5a; --accent2:#ff9280; --accent-soft:#3b2a26; --accent-ink:#ff9d85; --on-accent:#1f2328;
+  --sage:#699b87; --indigo:#7f8ce0; --mustard:#e4b545; --sky:#63a6d4; --plum:#c27bb0; --clay:#b07a7a;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:64px}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--font);font-size:1rem;line-height:1.45;
+  font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;border-top:4px solid var(--accent);
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+a{color:inherit;text-decoration-color:var(--accent);text-underline-offset:2px}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;max-width:1180px;margin:0 auto;padding:16px 16px 8px}
+.brand{display:flex;align-items:center;gap:12px;margin:0;text-decoration:none}
+.mark{flex:none;width:40px;height:32px;border-radius:7px;background:var(--accent);display:grid;place-items:center}
+.mark span{width:30px;height:21px;border-radius:2px;background:var(--sheet);display:flex;align-items:flex-end;justify-content:center;gap:3px;padding-bottom:3px}
+.mark i{display:block;width:4px;background:var(--ink)}
+.brand b{display:block;font-stretch:125%;font-weight:800;font-size:1.12rem;letter-spacing:-.01em;line-height:1.1}
+.brand small{display:block;font-weight:400;font-size:.84rem;color:var(--ink2)}
+.updated{font-size:.84rem;color:var(--ink2);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.live{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);margin-right:6px;box-shadow:0 0 0 3px var(--accent-soft);animation:pulse 2s infinite}
+.live.off{background:var(--grey);box-shadow:none;animation:none}
+@keyframes pulse{50%{box-shadow:0 0 0 6px transparent}}
+@media (prefers-reduced-motion:reduce){.live{animation:none}}
+.theme-btn{background:var(--sheet);border:1px solid var(--rule2);border-radius:6px;padding:3px 9px;cursor:pointer;font-size:.85rem}
+
+nav.tabs{position:sticky;top:0;z-index:10;background:var(--paper);border-bottom:1px solid var(--rule2)}
+nav.tabs .in{max-width:1180px;margin:0 auto;display:flex;overflow-x:auto;scrollbar-width:none;padding:0 8px}
+nav.tabs .in::-webkit-scrollbar{display:none}
+nav.tabs a{flex:none;padding:12px 10px 9px;text-decoration:none;font-weight:600;font-stretch:88%;color:var(--ink2);border-bottom:3px solid transparent;margin-bottom:-1px}
+nav.tabs a:hover{color:var(--ink)}
+nav.tabs a[aria-current="page"]{color:var(--ink);border-bottom-color:var(--accent)}
+
+main{max-width:1180px;margin:0 auto;padding:20px 16px 48px}
+[hidden]{display:none!important}
+h2{font-stretch:112%;font-weight:750;font-size:1.35rem;margin:34px 0 10px;letter-spacing:-.01em}
+h2:first-child{margin-top:4px}
+h3{font-weight:700;font-size:1rem;margin:0 0 10px;display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap}
+h3 small{font-weight:400;color:var(--ink2);font-size:.82rem}
+p.lead{color:var(--ink2);max-width:64ch;margin:0 0 14px}
+.muted{color:var(--ink2)}
+.sheet{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:16px;min-width:0}
+.grid{display:grid;gap:14px}
+@media(min-width:760px){.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:repeat(3,1fr)}}
+.welcome h2{font-stretch:125%;font-weight:850;font-size:clamp(1.8rem,5.6vw,3rem);line-height:1.02;letter-spacing:-.03em;margin:0 0 10px;max-width:18ch}
+
+.tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media(min-width:620px){.tiles{grid-template-columns:repeat(3,1fr)}}
+@media(min-width:980px){.tiles{grid-template-columns:repeat(5,1fr)}}
+.tile{padding:12px;border:1px solid var(--rule);border-radius:10px;background:var(--sheet);border-top:4px solid var(--c,var(--accent));min-width:0}
+.tile .lbl{font-size:.82rem;color:var(--ink2)}
+.tile .rv{font-stretch:115%;font-weight:800;font-size:1.6rem;line-height:1.1;margin-top:4px;overflow-wrap:anywhere}
+.tile .rv small{font-stretch:100%;font-weight:400;font-size:.8rem;color:var(--ink2);margin-left:4px}
+.tile .val{font-size:.85rem;margin-top:2px;color:var(--ink2)}
+.tile .pc{height:5px;border-radius:3px;background:var(--rule);margin-top:8px;overflow:hidden}
+.tile .pc i{display:block;height:100%;background:var(--c,var(--accent))}
+
+.bar{height:10px;background:var(--rule);border-radius:5px;overflow:hidden;min-width:60px}
+.bar i{display:block;height:100%;background:var(--accent);border-radius:5px}
+.bar.done i{background:var(--sage)}
+.big-bar{height:18px;border-radius:9px;background:var(--rule);overflow:hidden;margin:10px 0 6px}
+.big-bar i{display:block;height:100%;background:var(--accent);border-radius:9px;transition:width .6s}
+
+.chart{position:relative;height:230px}
+.chart.tall{height:300px}
+.chart.short{height:170px}
+.chart[data-empty="1"] canvas{opacity:.25}
+.chart[data-empty="1"]::after{content:"Pas encore de données";position:absolute;inset:0;display:grid;place-items:center;color:var(--ink2);font-style:italic;font-size:.9rem}
+
+.tw{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -4px;padding:0 4px}
+table{border-collapse:collapse;width:100%;font-stretch:88%;font-size:.93rem}
+th,td{padding:8px;border-bottom:1px solid var(--rule);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{padding-left:4px}
+th.l,td.l{text-align:left}
+th{font-weight:600;font-size:.8rem;color:var(--ink2);vertical-align:bottom;position:sticky;top:0;background:var(--sheet)}
+th button{background:none;border:0;padding:0;cursor:pointer;font-weight:600;color:inherit;text-align:inherit}
+th[aria-sort] button{color:var(--accent-ink)}
+td.name{white-space:normal;min-width:120px}
+tr.me td{background:var(--accent-soft)}
+
+.chip{display:inline-block;border:1.5px solid var(--ink);border-radius:999px;padding:1px 9px;font-size:.8rem;font-weight:600;background:var(--sheet)}
+.chip.good{background:var(--sage);border-color:var(--sage);color:#fff}
+.chip.bad{border-color:var(--clay);color:var(--clay)}
+.chip.none{border-style:dashed;color:var(--ink2);border-color:var(--grey);font-weight:400}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--sage);margin-right:6px;vertical-align:.08em}
+
+.btn{background:var(--accent);color:var(--on-accent);border:0;border-radius:8px;padding:8px 14px;cursor:pointer;font-weight:650;text-decoration:none;display:inline-block}
+.btn.ghost{background:var(--sheet);color:var(--ink);border:1.5px solid var(--rule2)}
+.btn.small{padding:5px 10px;font-size:.86rem}
+input.search{width:100%;max-width:320px;padding:7px 10px;border:1px solid var(--rule2);border-radius:8px;background:var(--paper)}
+
+.list{list-style:none;margin:0;padding:0}
+.list li{display:flex;gap:10px;justify-content:space-between;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--rule);font-size:.93rem}
+.list li:last-child{border-bottom:0}
+.list li>span:last-child{color:var(--ink2);white-space:nowrap;font-size:.84rem}
+.list li>span:first-child{min-width:0;overflow-wrap:anywhere}
+.list li span.mono{display:inline-block;max-width:100%;overflow-wrap:anywhere}
+@media(max-width:600px){.list li.cons{flex-direction:column;gap:2px;align-items:stretch}.list li.cons>span:last-child{white-space:normal}}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:.92rem;margin:0}
+.kv dt{color:var(--ink2)}
+.kv dd{margin:0;text-align:right;font-weight:600;overflow-wrap:anywhere}
+
+.heat{display:grid;grid-template-columns:34px repeat(24,1fr);gap:2px;font-size:.68rem;color:var(--ink2)}
+.heat b{font-weight:400;text-align:right;padding-right:4px;line-height:14px}
+.heat i{display:block;height:14px;border-radius:2px;background:var(--accent)}
+.heat .hd{text-align:center}
+
+.cores{display:flex;gap:4px;align-items:flex-end;height:60px}
+.cores i{flex:1;background:var(--rule);border-radius:3px 3px 0 0;position:relative;min-width:6px}
+.cores i::after{content:"";position:absolute;left:0;right:0;bottom:0;height:var(--h);background:var(--c,var(--sky));border-radius:3px 3px 0 0}
+
+.banner{display:none;max-width:1180px;margin:10px auto 0;padding:10px 16px;border-radius:8px;background:var(--accent-soft);color:var(--accent-ink);font-weight:600}
+.banner.on{display:block}
+#login{max-width:420px;margin:40px auto;padding:0 16px}
+#login label{display:block;font-size:.85rem;color:var(--ink2);margin:10px 0 4px}
+#login input{width:100%;padding:9px 11px;border:1px solid var(--rule2);border-radius:8px;background:var(--sheet)}
+footer{max-width:1180px;margin:0 auto;padding:22px 16px 44px;color:var(--ink2);font-size:.82rem;border-top:1px solid var(--rule)}
+.err{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.8rem;white-space:normal;overflow-wrap:anywhere}
+.empty{color:var(--ink2);font-style:italic;padding:8px 0}
+/* 🗄️ Base */
+.dbw{display:grid;gap:14px;grid-template-columns:minmax(0,1fr)}
+@media(min-width:900px){.dbw{grid-template-columns:290px minmax(0,1fr)}}
+.tlist{max-height:70vh;overflow:auto;margin:8px -6px 0;padding:0 6px}
+@media(max-width:899px){.tlist{max-height:260px}}
+.tlist button{display:flex;justify-content:space-between;gap:8px;width:100%;text-align:left;background:none;border:0;border-radius:6px;padding:6px 8px;cursor:pointer;font-size:.9rem}
+.tlist button:hover{background:var(--paper)}
+.tlist button[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent-ink);font-weight:650}
+.tlist button small{color:var(--ink2);font-weight:400;white-space:nowrap}
+.tlist .sch{font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--ink2);margin:10px 8px 4px}
+.seg{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
+.seg button{background:var(--sheet);border:1.5px solid var(--rule2);border-radius:999px;padding:3px 12px;cursor:pointer;font-size:.86rem;font-weight:600}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+table.grid td{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.8rem;text-align:left;max-width:280px;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+table.grid th{text-align:left}
+table.grid td.nul{color:var(--grey);font-style:italic}
+table.grid td.sec{color:var(--grey)}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.82rem}
+pre.code{background:var(--paper);border:1px solid var(--rule);border-radius:8px;padding:12px;overflow:auto;max-height:60vh;font-size:.78rem;line-height:1.5;margin:8px 0 0;white-space:pre}
+.pager{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:10px;font-size:.86rem;color:var(--ink2)}
+.frow{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.frow select,.frow input{padding:6px 9px;border:1px solid var(--rule2);border-radius:8px;background:var(--paper);min-width:0}
+.frow input{flex:1;min-width:140px}
+.cellv{white-space:pre-wrap;overflow-wrap:anywhere;margin:6px 0 0}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/" title="Retour au jeu">
+    <span class="mark"><span><i style="height:6px"></i><i style="height:12px"></i><i style="height:9px"></i></span></span>
+    <span><b>Le Cube · Tableau de bord</b><small>Tout ce qui se passe dans ton jeu et sur ton serveur, en direct</small></span>
+  </a>
+  <div class="updated"><span id="liveTxt"><span class="live off"></span>Connexion…</span>
+    <button class="theme-btn" id="bPause" type="button">⏸ Pause</button>
+    <button class="theme-btn" id="bTheme" type="button">🌗 Thème</button></div>
+</header>
+<div class="banner" id="banner"></div>
+<nav class="tabs" id="nav" hidden><div class="in">
+  <a href="#apercu">Vue d’ensemble</a><a href="#partie">Partie</a><a href="#joueurs">Joueurs</a><a href="#appareils">Appareils</a><a href="#economie">Économie</a>
+  <a href="#salon">Salon</a><a href="#pilote">Pilote</a><a href="#securite">Sécurité</a><a href="#serveur">Serveur</a><a href="#base">Base</a><a href="#journal">Journal</a>
+</div></nav>
+
+<div id="login" hidden>
+  <div class="sheet">
+    <h3>🔒 Réservé à l’organisateur</h3>
+    <p class="muted" style="margin:0 0 6px">Connecte-toi avec ton compte d’organisateur du Cube (le même que dans le jeu).</p>
+    <form id="fLogin">
+      <label for="lEmail">E-mail</label><input id="lEmail" type="email" autocomplete="email" required>
+      <label for="lPass">Mot de passe</label><input id="lPass" type="password" autocomplete="current-password" required>
+      <p id="lMsg" style="color:var(--accent-ink);min-height:1.4em;margin:8px 0"></p>
+      <button class="btn" type="submit" style="width:100%">Se connecter</button>
+    </form>
+  </div>
+</div>
+
+<main id="main" hidden>
+  <!-- ============ VUE D'ENSEMBLE ============ -->
+  <section id="apercu">
+    <div class="welcome"><h2 id="wTitle">Le cube</h2><p class="lead" id="wLead"></p></div>
+    <div class="big-bar"><i id="wBar" style="width:0"></i></div>
+    <p class="muted" id="wBarTxt" style="margin:0 0 18px"></p>
+    <div class="tiles" id="ovTiles"></div>
+    <div class="grid g2" style="margin-top:14px">
+      <div class="sheet"><h3>Joueurs en ligne <small>24 dernières heures</small></h3><div class="chart"><canvas id="cOnline"></canvas></div></div>
+      <div class="sheet"><h3>Coups par minute <small>24 dernières heures</small></h3><div class="chart"><canvas id="cHits"></canvas></div></div>
+    </div>
+    <div class="grid g2" style="margin-top:14px">
+      <div class="sheet"><h3>En ce moment <small id="nowCount"></small></h3><ul class="list" id="nowList"></ul></div>
+      <div class="sheet"><h3>Dernières nouvelles du cube</h3><ul class="list" id="actList"></ul></div>
+    </div>
+  </section>
+
+  <!-- ============ PARTIE ============ -->
+  <section id="partie" hidden>
+    <h2>La partie</h2>
+    <div class="tiles" id="gTiles"></div>
+    <div class="grid g2" style="margin-top:14px">
+      <div class="sheet"><h3>Blocs cassés par jour <small>depuis le début du cube</small></h3><div class="chart"><canvas id="cDays"></canvas></div></div>
+      <div class="sheet"><h3>Blocs cassés par heure <small>3 derniers jours</small></h3><div class="chart"><canvas id="cHours"></canvas></div></div>
+    </div>
+    <div class="grid g2" style="margin-top:14px">
+      <div class="sheet"><h3>Avancement par couche <small>0 = surface</small></h3><div class="chart tall"><canvas id="cLayers"></canvas></div></div>
+      <div class="sheet"><h3>Quand casse-t-on des blocs ? <small>jour × heure</small></h3><div id="heatBlocks"></div></div>
+    </div>
+    <div class="grid g2" style="margin-top:14px">
+      <div class="sheet"><h3>Artefacts cachés dans le cube</h3><div class="tw"><table id="tArts"></table></div></div>
+      <div class="sheet">
+        <h3>Objectif de la semaine</h3><div id="weekBox"></div>
+        <h3 style="margin-top:18px">Artefacts trouvés par jour</h3><div class="chart short"><canvas id="cArtDays"></canvas></div>
+        <h3 style="margin-top:18px">Réglages de la partie</h3><dl class="kv" id="rules"></dl>
+      </div>
+    </div>
+    <div class="sheet" style="margin-top:14px"><h3>Les cubes précédents</h3><div class="tw"><table id="tHall"></table></div></div>
+  </section>
+
+  <!-- ============ JOUEURS ============ -->
+  <section id="joueurs" hidden>
+    <h2>Les joueurs</h2>
+    <div class="tiles" id="pTiles"></div>
+    <div class="grid g2" style="margin-top:14px">
+      <div class="sheet"><h3>Top 10 · blocs cassés</h3><div class="chart tall"><canvas id="cTop"></canvas></div></div>
+      <div class="sheet"><h3>Inscriptions <small>cumul</small></h3><div class="chart tall"><canvas id="cSignups"></canvas></div></div>
+    </div>
+    <div class="grid g2" style="margin-top:14px">
+      <div class="sheet"><h3>Sessions de jeu par jour <small>et minutes jouées</small></h3><div class="chart"><canvas id="cSessDays"></canvas></div></div>
+      <div class="sheet"><h3>Quand jouent-ils ? <small>début des sessions</small></h3><div id="heatSess"></div></div>
+    </div>
+    <div class="grid g2" style="margin-top:14px">
+      <div class="sheet"><h3>Appareils <small>sessions</small></h3><div class="chart short"><canvas id="cDev"></canvas></div></div>
+      <div class="sheet"><h3>Pays <small>sessions</small></h3><div class="chart short"><canvas id="cCountry"></canvas></div></div>
+    </div>
+    <div class="sheet" style="margin-top:14px">
+      <h3>Tous les comptes <small id="plCount"></small></h3>
+      <input class="search" id="plSearch" type="search" placeholder="🔎 Chercher un pseudo…" style="margin-bottom:10px">
+      <div class="tw"><table id="tPlayers"></table></div>
+    </div>
+  </section>
+
+  <!-- ============ APPAREILS ============ -->
+  <section id="appareils" hidden>
+    <h2>📱 Les appareils</h2>
+    <p class="lead" id="devLead">Chaque téléphone, tablette ou ordinateur qui a ouvert le jeu, avec sa fiche technique complète. Une fiche se met à jour à chaque connexion.</p>
+    <div class="tiles" id="devTiles"></div>
+    <div class="grid g3" style="margin-top:14px">
+      <div class="sheet"><h3>Systèmes</h3><div class="chart short"><canvas id="cDevOs"></canvas></div></div>
+      <div class="sheet"><h3>Navigateurs</h3><div class="chart short"><canvas id="cDevBr"></canvas></div></div>
+      <div class="sheet"><h3>Types d’appareil</h3><div class="chart short"><canvas id="cDevType"></canvas></div></div>
+    </div>
+    <div class="sheet" style="margin-top:14px"><h3>Fluidité du jeu <small>images par seconde quand le cube bouge</small></h3><div class="chart"><canvas id="cDevFps"></canvas></div></div>
+    <div class="frow" style="margin-top:18px"><select id="devPlayer"><option value="">Tous les joueurs</option></select>
+      <select id="devSort"><option value="last">Vus récemment</option><option value="first">Nouveaux d’abord</option><option value="sess">Plus de connexions</option><option value="fps">Moins fluides</option></select></div>
+    <div class="grid g2" id="devCards"></div>
+  </section>
+
+  <!-- ============ ÉCONOMIE ============ -->
+  <section id="economie" hidden>
+    <h2>L’économie</h2>
+    <div class="tiles" id="eTiles"></div>
+    <div class="grid g2" style="margin-top:14px">
+      <div class="sheet"><h3>Les plus riches <small>🪙 en poche</small></h3><div class="chart tall"><canvas id="cRich"></canvas></div></div>
+      <div class="sheet"><h3>Dans les sacs <small>artefacts et matériaux</small></h3><div class="chart tall"><canvas id="cBags"></canvas></div></div>
+    </div>
+    <div class="grid g2" style="margin-top:14px">
+      <div class="sheet"><h3>🤖 Robots</h3><div class="tw"><table id="tRobots"></table></div></div>
+      <div class="sheet"><h3>🤖 Modèles en boutique</h3><div class="tw"><table id="tModels"></table></div>
+        <h3 style="margin-top:18px">⚔️ Duels</h3><dl class="kv" id="duels"></dl></div>
+    </div>
+  </section>
+
+  <!-- ============ SALON ============ -->
+  <section id="salon" hidden>
+    <h2>Le salon</h2>
+    <div class="tiles" id="sTiles"></div>
+    <div class="grid g2" style="margin-top:14px">
+      <div class="sheet"><h3>Messages par jour <small>60 derniers jours</small></h3><div class="chart"><canvas id="cChatDays"></canvas></div></div>
+      <div class="sheet"><h3>Messages selon l’heure</h3><div class="chart"><canvas id="cChatHours"></canvas></div></div>
+    </div>
+    <div class="grid g3" style="margin-top:14px">
+      <div class="sheet"><h3>Les plus bavards</h3><ul class="list" id="chatters"></ul></div>
+      <div class="sheet"><h3>Réactions préférées</h3><ul class="list" id="emojis"></ul></div>
+      <div class="sheet"><h3>🛡️ Modération <small>30 jours</small></h3><ul class="list" id="modList"></ul></div>
+    </div>
+  </section>
+
+  <!-- ============ PILOTE ============ -->
+  <section id="pilote" hidden>
+    <h2>🧭 Le pilote automatique</h2>
+    <p class="lead" id="apLead">Chargement…</p>
+    <div class="tiles" id="apTiles"></div>
+    <div class="grid g2" style="margin-top:14px">
+      <div class="sheet"><h3>Avancement du cube <small>blocs détruits · trajectoire idéale</small></h3><div class="chart tall"><canvas id="cApTraj"></canvas></div></div>
+      <div class="sheet"><h3>Rythme mesuré <small>1 = parfait · zone verte = bon rythme</small></h3><div class="chart tall"><canvas id="cApR"></canvas></div></div>
+    </div>
+    <div class="grid g2" style="margin-top:14px">
+      <div class="sheet"><h3>Ses réglages dans le temps <small>× par rapport au lancement</small></h3><div class="chart"><canvas id="cApMult"></canvas></div></div>
+      <div class="sheet"><h3>Or et matériaux <small>1 bloc sur… · décalage de profondeur</small></h3><div class="chart"><canvas id="cApFreq"></canvas></div></div>
+    </div>
+    <div class="grid g2" style="margin-top:14px">
+      <div class="sheet"><h3>Matériaux <small>ce que les joueurs ont en poche</small></h3><div class="tw"><table id="tApMat"></table></div>
+        <h3 style="margin-top:18px">Profondeur</h3><dl class="kv" id="apDepth"></dl></div>
+      <div class="sheet"><h3>Prix de la boutique <small id="apPriceTxt"></small></h3><div class="tw" style="max-height:420px;overflow:auto"><table id="tApPrice"></table></div></div>
+    </div>
+    <div class="sheet" style="margin-top:14px"><h3>Recettes de l’atelier <small id="apRecTxt"></small></h3><div class="tw" style="max-height:420px;overflow:auto"><table id="tApRec"></table></div></div>
+    <div class="sheet" style="margin-top:14px">
+      <h3>Journal des décisions <small id="apLogTxt"></small></h3>
+      <div class="seg" id="apLogSeg"><button type="button" data-lf="act" aria-pressed="true">Seulement les changements</button><button type="button" data-lf="all" aria-pressed="false">Tout</button></div>
+      <ul class="list" id="apLog"></ul>
+    </div>
+  </section>
+
+  <!-- ============ SÉCURITÉ ============ -->
+  <section id="securite" hidden>
+    <h2>🛡️ La sécurité</h2>
+    <p class="lead" id="secLead">Tout ce qui arrive jusqu’à ton PC : connexions, essais ratés, refus, erreurs et actions sensibles. Ce que Cloudflare bloque avant (robots, scanners) n’arrive jamais jusqu’ici : tu le vois dans Cloudflare › Sécurité › Analytics.</p>
+    <div class="tiles" id="secTiles"></div>
+    <div class="grid g2" style="margin-top:14px">
+      <div class="sheet"><h3>Connexions aux comptes <small>par heure · 24 h</small></h3><div class="chart"><canvas id="cSecLogin"></canvas></div></div>
+      <div class="sheet"><h3>Réponses en erreur <small>par heure · 24 h</small></h3><div class="chart"><canvas id="cSecHttp"></canvas></div></div>
+    </div>
+    <div class="grid g2" style="margin-top:14px">
+      <div class="sheet"><h3>Freinages et refus <small>par heure · 24 h</small></h3><div class="chart"><canvas id="cSecDeny"></canvas></div></div>
+      <div class="sheet"><h3>La semaine <small>par jour · 7 jours</small></h3><div class="chart"><canvas id="cSecWeek"></canvas></div></div>
+    </div>
+    <div class="grid g3" style="margin-top:14px">
+      <div class="sheet"><h3>🔐 Ton compte d’organisateur</h3><ul class="list" id="secAdmin"></ul></div>
+      <div class="sheet"><h3>Adresses avec des échecs <small>24 h</small></h3><ul class="list" id="secIps"></ul></div>
+      <div class="sheet"><h3>Pages inconnues demandées <small id="secNfTxt"></small></h3><ul class="list" id="secNf"></ul></div>
+    </div>
+    <div class="sheet" style="margin-top:14px">
+      <h3>Journal de sécurité <small id="secLogTxt"></small></h3>
+      <div class="seg" id="secSeg"><button type="button" data-sf="imp" aria-pressed="true">Important</button><button type="button" data-sf="login" aria-pressed="false">Connexions</button><button type="button" data-sf="all" aria-pressed="false">Tout</button></div>
+      <ul class="list" id="secLog"></ul>
+    </div>
+  </section>
+
+  <!-- ============ SERVEUR ============ -->
+  <section id="serveur" hidden>
+    <h2>Le serveur</h2>
+    <div class="tiles" id="svTiles"></div>
+    <div class="grid g2" style="margin-top:14px">
+      <div class="sheet"><h3>Processeur <small>24 h · % de tout le PC et du jeu</small></h3><div class="chart"><canvas id="cCpu"></canvas></div></div>
+      <div class="sheet"><h3>Mémoire <small>24 h</small></h3><div class="chart"><canvas id="cMem"></canvas></div></div>
+    </div>
+    <div class="grid g2" style="margin-top:14px">
+      <div class="sheet"><h3>Temps de réponse <small>24 h · ms</small></h3><div class="chart"><canvas id="cRpc"></canvas></div></div>
+      <div class="sheet"><h3>Réactivité du serveur <small>24 h · retard en ms</small></h3><div class="chart"><canvas id="cLag"></canvas></div></div>
+    </div>
+    <div class="grid g2" style="margin-top:14px">
+      <div class="sheet"><h3>Données envoyées <small>24 h · Ko par minute</small></h3><div class="chart"><canvas id="cNet"></canvas></div></div>
+      <div class="sheet"><h3>La semaine <small>max. en ligne et coups par 10 min</small></h3><div class="chart"><canvas id="cWeek"></canvas></div></div>
+    </div>
+    <div class="grid g3" style="margin-top:14px">
+      <div class="sheet"><h3>Cœurs du processeur <small id="coreTxt"></small></h3><div class="cores" id="cores"></div>
+        <h3 style="margin-top:18px">Machine</h3><dl class="kv" id="machine"></dl></div>
+      <div class="sheet"><h3>Stockage et sauvegardes</h3><dl class="kv" id="storage"></dl></div>
+      <div class="sheet"><h3>Réseau et notifications</h3><dl class="kv" id="network"></dl></div>
+    </div>
+    <div class="grid g2" style="margin-top:14px">
+      <div class="sheet"><h3>Fonctions du jeu les plus coûteuses</h3><div class="tw"><table id="tRpc"></table></div></div>
+      <div class="sheet"><h3>Base de données <small id="dbTxt"></small></h3><div class="tw"><table id="tDb"></table></div></div>
+    </div>
+    <div class="grid g2" style="margin-top:14px">
+      <div class="sheet"><h3>Messages en direct reçus <small>par type</small></h3><div class="chart tall"><canvas id="cWs"></canvas></div></div>
+      <div class="sheet"><h3>Dernières erreurs</h3><ul class="list" id="errList"></ul></div>
+    </div>
+  </section>
+
+  <!-- ============ BASE ============ -->
+  <section id="base" hidden>
+    <h2>La base de données</h2>
+    <p class="lead">Le cœur du jeu, table par table, en lecture seule : rien ne peut être modifié d’ici. Les mots de passe et les clés secrètes ne sont jamais affichés.</p>
+    <div class="tiles" id="dbTiles"></div>
+    <div class="dbw" style="margin-top:14px">
+      <div class="sheet"><h3>Tables <small id="dbTCount"></small></h3>
+        <input class="search" id="dbSearch" type="search" placeholder="🔎 Chercher une table…">
+        <div class="tlist" id="dbList"></div></div>
+      <div class="sheet" id="dbPane"><p class="empty">Choisis une table.</p></div>
+    </div>
+    <div class="sheet" style="margin-top:14px">
+      <h3>Fonctions du jeu <small id="fnCount"></small></h3>
+      <p class="muted" style="margin:0 0 8px;font-size:.88rem">Toutes les règles du jeu écrites dans la base (frapper un bloc, acheter, ouvrir un coffre…). Touche une fonction pour lire son code. Les fonctions « internes » ne peuvent pas être appelées depuis le jeu.</p>
+      <input class="search" id="fnSearch" type="search" placeholder="🔎 Chercher une fonction…">
+      <div class="tw" style="margin-top:8px;max-height:420px;overflow:auto"><table id="tFn"></table></div>
+      <div id="fnCode"></div>
+    </div>
+  </section>
+
+  <!-- ============ JOURNAL ============ -->
+  <section id="journal" hidden>
+    <h2>Le journal</h2>
+    <p class="lead">Les sessions de jeu terminées (une coupure de moins d’une minute ne compte pas), les plus récentes d’abord.</p>
+    <div class="sheet"><div class="tw"><table id="tSess"></table></div>
+      <div style="margin-top:10px"><button class="btn ghost small" id="sessMore" type="button">Afficher plus</button></div></div>
+  </section>
+</main>
+<footer id="foot" hidden></footer>
+
+<script>
+'use strict';
+/* =============== Outils =============== */
+const TK = 'le-cube-maison-jeton';
+const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} } };
+let token = store.get(TK);
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const NF = new Intl.NumberFormat('fr-FR'), NF1 = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 });
+const fmt = n => NF.format(Math.round(+n || 0)), fmt1 = n => NF1.format(+n || 0);
+const pct = (a, b) => b > 0 ? 100 * a / b : 0;
+const bytes = n => { n = +n || 0; const u = ['o', 'Ko', 'Mo', 'Go', 'To']; let i = 0; while (n >= 1024 && i < 4) { n /= 1024; i++; } return `${NF1.format(n)} ${u[i]}`; };
+const dur = s => { s = Math.max(0, Math.round(s)); if (s < 60) return `${s} s`; const m = Math.floor(s / 60); if (m < 60) return `${m} min`; const h = Math.floor(m / 60); if (h < 48) return `${h} h ${String(m % 60).padStart(2, '0')}`; return `${Math.floor(h / 24)} j ${h % 24} h`; };
+const ago = d => { if (!d) return '—'; const s = (Date.now() - new Date(d)) / 1000; if (s < 60) return 'à l’instant'; if (s < 3600) return `il y a ${Math.floor(s / 60)} min`; if (s < 86400) return `il y a ${Math.floor(s / 3600)} h`; const j = Math.floor(s / 86400); return j < 60 ? `il y a ${j} j` : new Date(d).toLocaleDateString('fr-FR'); };
+const hm = t => new Date(t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+const dayLbl = d => new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+const dateTime = d => d ? new Date(d).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const PAL = () => ['--accent', '--sage', '--indigo', '--mustard', '--sky', '--plum', '--clay', '--accent2'].map(css);
+const alpha = (hex, a) => { const h = hex.replace('#', ''); const n = parseInt(h.length === 3 ? h.replace(/./g, '$&$&') : h, 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; };
+const DAYS = ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim'];
+const ITEMS = {
+  or: ['🪙', 'Or'], silex: ['🪨', 'Silex'], fer: ['🔩', 'Fer'], poudre: ['🧪', 'Poudre noire'], cristal: ['💎', 'Cristal'],
+  bombe: ['💣', 'Bombe'], foreuse: ['⚡', 'Laser'], megabombe: ['☄️', 'Météore'], marteau: ['🔨', 'Marteau d’or'], radar: ['📡', 'Radar'],
+  scie: ['🪚', 'Scie'], seisme: ['🌋', 'Séisme'], sonde: ['🔍', 'Sonde'], aimant: ['🧲', 'Aimant'], cor: ['📯', 'Cor de ralliement'],
+  ecorce: ['🧅', 'Écorce du Monde'], oeil: ['👁️', 'Œil du Cube'], dynamite: ['🧨', 'Dynamite'], trefle: ['🍀', 'Trèfle'], sablier: ['⏳', 'Sablier'],
+  fontaine: ['⛲', 'Fontaine'], vrille: ['🌀', 'Vrille'], grappe: ['💥', 'Grappe'], givre: ['❄️', 'Givre'], chaine: ['⛓️', 'Réaction en chaîne'],
+  tornade: ['🌪️', 'Tornade'], pilier: ['🎯', 'Pilier'], toile: ['🕸️', 'Piège : toile'], lenteur: ['🐌', 'Piège : engourdissement'],
+  brouillard: ['🌫️', 'Piège : brouillard'], macon: ['🧱', 'Piège : maçon fou'], durci: ['🪨', 'Piège : durcissement'], pickpocket: ['💸', 'Piège : pickpocket'],
+};
+const item = k => { const r = /^robot:(\d+)$/.exec(k); if (r) return ['🤖', `Robot n° ${r[1]}`]; return ITEMS[k] || ['▫️', k]; };
+const tile = (lbl, rv, val = '', c = '', pc = null) => `<div class="tile" style="${c ? `--c:var(${c})` : ''}"><div class="lbl">${lbl}</div><div class="rv">${rv}</div>${val ? `<div class="val">${val}</div>` : ''}${pc != null ? `<div class="pc"><i style="width:${Math.max(0, Math.min(100, pc)).toFixed(1)}%"></i></div>` : ''}</div>`;
+const kv = rows => rows.filter(Boolean).map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+const li = rows => rows.length ? rows.map(([a, b]) => `<li><span>${a}</span><span>${b}</span></li>`).join('') : '<li class="empty">Rien pour l’instant.</li>';
+
+/* =============== Graphiques (Chart.js, mis à jour sans clignoter) =============== */
+const charts = {};
+function chart(id, type, labels, datasets, opt = {}) {
+  if (typeof Chart === 'undefined') return;
+  const el = $(id); if (!el) return;
+  const pal = PAL();
+  datasets.forEach((d, k) => {
+    const col = d.color ? css(d.color) : pal[k % pal.length];
+    d.borderColor ??= col; d.backgroundColor ??= type === 'line' ? (d.fill ? alpha(col, .18) : col) : (d.multi ? d.data.map((_, j) => pal[j % pal.length]) : alpha(col, .85));
+    if (type === 'line') { d.pointRadius ??= 0; d.borderWidth ??= 1.8; d.tension ??= .3; d.pointHoverRadius ??= 4; }
+    if (type === 'bar') { d.borderRadius ??= 3; d.borderWidth ??= 0; }
+  });
+  const none = !labels.length || datasets.every(d => !d.data.some(v => +v));
+  el.parentElement.dataset.empty = none ? '1' : '';
+  const c = charts[id];
+  if (c && c.config.type === type) { c.data.labels = labels; c.data.datasets = datasets; c.update('none'); return; }
+  c?.destroy();
+  Chart.defaults.font.family = css('--font'); Chart.defaults.color = css('--ink2'); Chart.defaults.borderColor = css('--rule');
+  const round = type === 'doughnut';
+  charts[id] = new Chart(el, { type, data: { labels, datasets }, options: {
+    responsive: true, maintainAspectRatio: false, animation: { duration: 300 }, indexAxis: opt.horizontal ? 'y' : 'x',
+    interaction: { mode: round ? 'nearest' : 'index', intersect: round },
+    plugins: { legend: { display: datasets.length > 1 || round, position: round ? 'right' : 'top', labels: { color: css('--ink'), usePointStyle: true, boxWidth: 8 } },
+      tooltip: { backgroundColor: css('--ink'), titleColor: css('--paper'), bodyColor: css('--paper'), padding: 10, cornerRadius: 8,
+        callbacks: opt.tip ? { label: opt.tip } : {} } },
+    scales: round ? {} : {
+      ...(opt.horizontal ? {                               // barres couchées : les noms à gauche, les nombres en bas
+        y: { grid: { display: false }, ticks: { autoSkip: false }, stacked: !!opt.stacked },
+        x: { beginAtZero: true, grid: { color: css('--rule') }, ticks: { maxTicksLimit: 6, callback: opt.yfmt || (v => NF1.format(v)) }, stacked: !!opt.stacked, max: opt.ymax },
+      } : {
+        x: { grid: { display: false }, ticks: { maxTicksLimit: opt.xticks || 8, autoSkip: true, maxRotation: 0 }, stacked: !!opt.stacked },
+        y: { beginAtZero: true, grid: { color: css('--rule') }, ticks: { maxTicksLimit: 6, callback: opt.yfmt || (v => NF1.format(v)) }, stacked: !!opt.stacked, max: opt.ymax },
+      }),
+      ...(opt.y2 ? { y2: { position: 'right', beginAtZero: true, grid: { display: false }, ticks: { maxTicksLimit: 6 } } } : {}) },
+  } });
+}
+function heatmap(id, counts) {      // counts[jour 0..6][heure 0..23]
+  const mx = Math.max(1, ...counts.flat());
+  let h = '<div class="heat"><b></b>' + Array.from({ length: 24 }, (_, k) => `<span class="hd">${k % 3 === 0 ? k : ''}</span>`).join('');
+  counts.forEach((row, d) => { h += `<b>${DAYS[d]}</b>` + row.map((n, k) => `<i title="${DAYS[d]} ${k} h : ${fmt(n)}" style="opacity:${n ? (0.12 + 0.88 * n / mx).toFixed(2) : 0.05}"></i>`).join(''); });
+  $(id).innerHTML = h + '</div>';
+}
+const parisParts = t => { const p = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', weekday: 'short', hour: 'numeric', hourCycle: 'h23' }).formatToParts(new Date(t));
+  const wd = p.find(x => x.type === 'weekday').value.replace('.', ''); return [Math.max(0, DAYS.indexOf(wd.slice(0, 3))), +p.find(x => x.type === 'hour').value]; };
+const parisDay = t => new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Paris' }).format(new Date(t));
+
+/* =============== Connexion au serveur du jeu =============== */
+async function post(path, body) {
+  const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) }, body: JSON.stringify(body || {}) });
+  const j = await r.json().catch(() => ({ error: 'Réponse illisible' }));
+  if (r.status === 403 || r.status === 401) { const e = new Error(j.error || 'Accès refusé'); e.auth = true; throw e; }
+  if (!r.ok || j.error) throw new Error(j.error || 'Erreur ' + r.status);
+  return j;
+}
+function showLogin(msg) {
+  $('main').hidden = true; $('nav').hidden = true; $('foot').hidden = true; $('login').hidden = false;
+  $('lMsg').textContent = msg || '';
+  $('liveTxt').innerHTML = '<span class="live off"></span>Non connecté';
+}
+$('fLogin').onsubmit = async e => {
+  e.preventDefault(); $('lMsg').textContent = '';
+  try {
+    const r = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: $('lEmail').value.trim(), password: $('lPass').value }) });
+    const j = await r.json();
+    if (!r.ok || j.error) throw new Error(j.error || 'Connexion impossible');
+    token = j.token; store.set(TK, token); start();
+  } catch (err) { $('lMsg').textContent = err.message; }
+};
+
+/* =============== Onglets =============== */
+const TABS = ['apercu', 'partie', 'joueurs', 'appareils', 'economie', 'salon', 'pilote', 'securite', 'serveur', 'base', 'journal'];
+function route() {
+  const t = TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'apercu';
+  for (const id of TABS) $(id).hidden = id !== t;
+  document.querySelectorAll('nav.tabs a').forEach(a => a.setAttribute('aria-current', a.getAttribute('href') === '#' + t ? 'page' : 'false'));
+  render();
+  setTimeout(() => Object.values(charts).forEach(c => c.resize()), 0);
+}
+addEventListener('hashchange', route);
+
+/* =============== Thème =============== */
+const THEMES = ['auto', 'light', 'dark'];
+let theme = THEMES.includes(store.get('lc-dash-theme')) ? store.get('lc-dash-theme') : 'auto';
+function applyTheme() {
+  if (theme === 'auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = theme;
+  $('bTheme').textContent = { auto: '🌗 Auto', light: '☀️ Clair', dark: '🌙 Sombre' }[theme];
+  for (const id in charts) { charts[id].destroy(); delete charts[id]; }
+  render();
+}
+$('bTheme').onclick = () => { theme = THEMES[(THEMES.indexOf(theme) + 1) % 3]; store.set('lc-dash-theme', theme); applyTheme(); };
+matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => theme === 'auto' && applyTheme());
+
+/* =============== Données en direct =============== */
+let M = null, G = null, mAt = 0, gAt = 0, paused = false, failing = 0, timer = null, sessShown = 60;
+$('bPause').onclick = () => { paused = !paused; $('bPause').textContent = paused ? '▶️ Reprendre' : '⏸ Pause'; if (!paused) tick(true); liveText(); };
+function liveText() {
+  const s = mAt ? Math.round((Date.now() - mAt) / 1000) : null;
+  $('liveTxt').innerHTML = paused ? '<span class="live off"></span>En pause'
+    : failing ? '<span class="live off"></span>Serveur injoignable…'
+    : `<span class="live"></span>En direct · ${s == null ? '…' : s < 3 ? 'à l’instant' : `il y a ${s} s`}`;
+}
+setInterval(liveText, 1000);
+async function tick(force) {
+  clearTimeout(timer);
+  if (!paused && (!document.hidden || force)) {
+    try {
+      const needG = force || !G || Date.now() - gAt > 20000;
+      const [m, g] = await Promise.all([post('/api/admin/metrics'), needG ? post('/api/admin/dash-game') : Promise.resolve(null)]);
+      M = m; mAt = Date.now(); if (g) { G = g; gAt = Date.now(); }
+      failing = 0; $('banner').classList.remove('on');
+      if ($('main').hidden) { $('login').hidden = true; $('main').hidden = false; $('nav').hidden = false; $('foot').hidden = false; route(); }
+      else render();
+    } catch (e) {
+      if (e.auth) { token = null; store.set(TK, null); return showLogin('Connecte-toi avec le compte organisateur.'); }
+      failing++;
+      $('banner').textContent = `⚠️ Le serveur ne répond pas (${e.message}). Nouvel essai automatique…`; $('banner').classList.add('on');
+    }
+    liveText();
+  }
+  timer = setTimeout(tick, failing ? Math.min(30000, 5000 * failing) : 5000);
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(true); });
+function start() { if (!token) return showLogin(); tick(true); }
+
+/* =============== Affichage =============== */
+function render() {
+  if (!M || !G) return;
+  const t = TABS.find(id => !$(id).hidden) || 'apercu';
+  try { ({ apercu: rOverview, partie: rGame, joueurs: rPlayers, appareils: rDevices, economie: rEco, salon: rChat, pilote: rPilot, securite: rSecurity, serveur: rServer, base: rBase, journal: rJournal })[t](); }
+  catch (e) { console.error(e); }
+  $('foot').innerHTML = `Le Cube ${esc(G.game_version || '')} · Node ${esc(M.node || '')} · ${esc(M.hostname || '')}<br>
+    Données lues en direct sur ton PC (toutes les 5 s pour le serveur, toutes les 20 s pour la partie) · aucun chiffre n’est modifié par cette page.`;
+}
+const gm = () => G.game || {};
+const total = () => (gm().size || 0) ** 3;
+const players = () => (G.players || []).filter(p => !p.is_admin);
+const approved = () => players().filter(p => p.status === 'approved');
+const onlineIds = () => new Set((M.conns || []).map(c => c.id));
+const hist = () => M.day || [];
+const histLbl = () => hist().map(h => hm(h.t));
+
+function rOverview() {
+  const g = gm(), T = total(), D = +g.destroyed || 0, left = T - D, ps = approved();
+  const d1 = ps.filter(p => p.last_seen && Date.now() - new Date(p.last_seen) < 864e5).length;
+  const d7 = ps.filter(p => p.last_seen && Date.now() - new Date(p.last_seen) < 6048e5).length;
+  const lastMin = hist().slice(-1)[0] || {};
+  $('wTitle').textContent = `Cube ${g.size}³ · ${fmt1(pct(D, T))} % détruit`;
+  $('wLead').textContent = `Commencé ${ago(g.started_at)} (${dateTime(g.started_at)}). Encore ${fmt(left)} blocs avant le trésor${g.revealed_at ? ' — le trésor est révélé !' : '.'}`;
+  $('wBar').style.width = Math.min(100, pct(D, T)).toFixed(2) + '%';
+  const days = dayTotals(), recent = days.slice(-7), perDay = recent.length ? recent.reduce((a, d) => a + d[1], 0) / recent.length : 0;
+  const eta = perDay > 0 ? left / perDay : 0;
+  $('wBarTxt').textContent = `${fmt(D)} / ${fmt(T)} blocs` + (perDay > 0 ? ` · rythme des 7 derniers jours : ${fmt(perDay)} blocs/jour · ${eta > 3650 ? 'à ce rythme, plus de 10 ans avant la fin' : eta > 90 ? `fin estimée dans ${fmt(eta / 30.4)} mois` : `fin estimée dans ${dur(eta * 86400)}`}` : '');
+  $('ovTiles').innerHTML = [
+    tile('En ligne', `${fmt(M.online)}<small>joueur${M.online > 1 ? 's' : ''}</small>`, `record du jour ${fmt(M.peak_today)} · absolu ${fmt(M.peak)}`, '--sage'),
+    tile('Coups (dernière minute)', fmt(lastMin.hits || 0), `${fmt(M.totals?.hits)} depuis le démarrage`, '--accent'),
+    tile('Joueurs validés', fmt(ps.length), `${players().filter(p => p.status === 'pending').length} en attente · ${players().filter(p => p.status === 'refused').length} refusés`, '--indigo'),
+    tile('Actifs', `${fmt(d1)}<small>/ 24 h</small>`, `${fmt(d7)} sur 7 jours`, '--sky', pct(d1, ps.length)),
+    tile('Messages du salon', `${fmt(G.chat?.d1)}<small>/ 24 h</small>`, `${fmt(G.chat?.total)} au total`, '--plum'),
+    tile('Processeur', `${fmt(M.cpu_pct)}<small>%</small>`, `jeu : ${fmt1(M.proc_pct)} %`, M.cpu_pct > 80 ? '--clay' : '--mustard', M.cpu_pct),
+    tile('Mémoire du PC', `${fmt(pct(M.mem.total - M.mem.free, M.mem.total))}<small>%</small>`, `jeu : ${bytes(M.mem.rss)}`, '--sky', pct(M.mem.total - M.mem.free, M.mem.total)),
+    tile('Temps de réponse', `${fmt1(lastMin.ms || 0)}<small>ms</small>`, `p95 ${fmt(lastMin.p95 || 0)} ms`, (lastMin.p95 || 0) > 200 ? '--clay' : '--sage'),
+    tile('En marche depuis', dur(M.uptime_s), `PC allumé depuis ${dur(M.os_uptime_s)}`, '--grey'),
+    tile('Tunnel', M.tunnel?.ok ? '✅ OK' : '⚠️ Coupé', esc(M.tunnel?.mode || ''), M.tunnel?.ok ? '--sage' : '--clay'),
+  ].join('');
+  chart('cOnline', 'line', histLbl(), [{ label: 'En ligne', data: hist().map(h => h.online), fill: true, stepped: true, tension: 0, color: '--sage' }], { yfmt: v => Number.isInteger(v) ? v : '' });
+  chart('cHits', 'bar', histLbl(), [{ label: 'Coups', data: hist().map(h => h.hits), color: '--accent' }, { label: 'Refusés (trop rapides)', data: hist().map(h => h.rej), color: '--clay' }], { stacked: true });
+  const on = M.conns.filter(c => !c.admin), stats = new Map((M.players || []).map(p => [p.id, p]));
+  const seen = new Set(), uniq = on.filter(c => !seen.has(c.id) && seen.add(c.id));
+  $('nowCount').textContent = `${uniq.length} joueur${uniq.length > 1 ? 's' : ''}`;
+  $('nowList').innerHTML = li(uniq.map(c => { const s = stats.get(c.id); return [`<span class="dot"></span><b>${esc(c.pseudo)}</b> <span class="muted">· ${esc(c.device || '')}${c.country ? ' · ' + esc(c.country) : ''}</span>`,
+    `${dur((Date.now() - c.since) / 1000)}${s?.cps ? ` · ${fmt1(s.cps)} coups/s` : ''}`]; }));
+  $('actList').innerHTML = li((G.activity_last || []).slice(0, 14).map(a => [esc(a.text), ago(a.at)]));
+}
+
+function dayTotals() {             // [[jour, blocs]] depuis le film du cube
+  const m = new Map();
+  for (const [t, n] of G.hourly || []) { const d = parisDay(t); m.set(d, (m.get(d) || 0) + n); }
+  return [...m].sort((a, b) => a[0] < b[0] ? -1 : 1);
+}
+function rGame() {
+  const g = gm(), T = total(), D = +g.destroyed || 0;
+  const arts = G.artifacts || [], aT = arts.reduce((a, x) => a + x.total, 0), aF = arts.reduce((a, x) => a + x.found, 0);
+  const ch = G.chests || {}, ps = players();
+  const days = dayTotals(), best = days.reduce((b, d) => d[1] > b[1] ? d : b, ['', 0]);
+  $('gTiles').innerHTML = [
+    tile('Cube détruit', `${fmt1(pct(D, T))}<small>%</small>`, `${fmt(D)} / ${fmt(T)} blocs`, '--accent', pct(D, T)),
+    tile('Couches arrachées', fmt(g.peeled || 0), `${fmt(Math.ceil((g.size || 0) / 2))} couches en tout`, '--plum'),
+    tile('Artefacts trouvés', `${fmt(aF)}<small>/ ${fmt(aT)}</small>`, `${fmt(aT - aF)} encore cachés`, '--mustard', pct(aF, aT)),
+    tile('Coffres dorés', `${fmt(ch.opened - (ch.traps_opened || 0))}<small>/ ${fmt(ch.total - (ch.traps || 0))}</small>`, `faux coffres : ${fmt(ch.traps_opened)} / ${fmt(ch.traps)} ouverts`, '--sky', pct(ch.opened, ch.total)),
+    tile('Meilleure journée', fmt(best[1]), best[0] ? dayLbl(best[0]) : '—', '--sage'),
+    tile('Coups pour un bloc', fmt(g.max_hp), `or : 1 bloc sur ${fmt(g.gold_every)} · matériaux : 1 sur ${fmt(g.mat_every)}`, '--grey'),
+    tile('Plus profond', `couche ${fmt(Math.max(0, ...ps.map(p => p.deepest)))}`, (() => { const p = ps.slice().sort((a, b) => b.deepest - a.deepest)[0]; return p?.deepest ? 'par ' + esc(p.pseudo) : 'personne encore'; })(), '--indigo'),
+    tile('Plus long combo', fmt(Math.max(0, ...ps.map(p => p.combo))), (() => { const p = ps.slice().sort((a, b) => b.combo - a.combo)[0]; return p?.combo ? 'par ' + esc(p.pseudo) : 'personne encore'; })(), '--clay'),
+    tile('Événement', g.event_kind && new Date(g.event_until) > new Date() ? `🌟 en cours` : 'aucun', g.event_kind && new Date(g.event_until) > new Date() ? `jusqu’à ${hm(g.event_until)}` : (g.events_on ? 'heures dorées automatiques actives' : 'heures dorées coupées'), '--mustard'),
+    tile('Calcul des chiffres', `${fmt(G.query_ms)}<small>ms</small>`, 'lecture de la base (toutes les 20 s)', '--grey'),
+  ].join('');
+  const dd = days.slice(-90);
+  chart('cDays', 'bar', dd.map(d => dayLbl(d[0])), [{ label: 'Blocs', data: dd.map(d => d[1]), color: '--accent' }]);
+  const now = Math.floor(Date.now() / 3600e3) * 3600e3, hm72 = new Map((G.hourly || []).map(([t, n]) => [t, n])), hrs = [];
+  for (let t = now - 71 * 3600e3; t <= now; t += 3600e3) hrs.push([t, hm72.get(t) || 0]);
+  chart('cHours', 'bar', hrs.map(([t]) => new Date(t).toLocaleString('fr-FR', { weekday: 'short', hour: '2-digit' }) + ' h'), [{ label: 'Blocs', data: hrs.map(h => h[1]), color: '--indigo' }], { xticks: 6 });
+  const s = g.size || 0, lay = new Map((G.layers || []).map(l => [l.d, +l.n])), L = [];
+  for (let d = 0; d < Math.ceil(s / 2); d++) { const a = s - 2 * d, b = Math.max(0, a - 2), tot = a ** 3 - b ** 3; L.push([d, Math.min(100, pct(lay.get(d) || (d < (g.peeled || 0) ? tot : 0), tot))]); }
+  const lastL = Math.max(10, L.findLastIndex(x => x[1] > 0) + 4), LL = L.slice(0, Math.min(L.length, lastL));
+  chart('cLayers', 'bar', LL.map(x => x[0]), [{ label: '% détruit', data: LL.map(x => +x[1].toFixed(2)), color: '--sage' }], { yfmt: v => v + ' %', ymax: 100, tip: c => ` ${fmt1(c.raw)} % de la couche ${c.label}` });
+  const hb = Array.from({ length: 7 }, () => Array(24).fill(0));
+  for (const [t, n] of G.hourly || []) { const [d, h] = parisParts(t); hb[d][h] += n; }
+  heatmap('heatBlocks', hb);
+  $('tArts').innerHTML = '<tr><th class="l">Artefact</th><th>Trouvés</th><th>Cachés</th><th class="l" style="width:35%"></th></tr>' +
+    (arts.map(a => { const [ic, nm] = item(a.kind); return `<tr><td class="l">${ic} ${esc(nm)}</td><td>${fmt(a.found)}</td><td>${fmt(a.total - a.found)}</td><td class="l"><div class="bar ${a.found >= a.total ? 'done' : ''}"><i style="width:${pct(a.found, a.total)}%"></i></div></td></tr>`; }).join('') || '<tr><td class="l empty" colspan="4">Aucun artefact.</td></tr>');
+  const wb = Math.max(0, D - (+g.week_base || 0)), wg = +g.week_goal || 0;
+  $('weekBox').innerHTML = `<p style="margin:0 0 6px"><b>${fmt(wb)}</b> blocs cassés cette semaine${wg ? ` sur un objectif de <b>${fmt(wg)}</b>` : ''} ${g.week_done ? '<span class="chip good">✓ atteint</span>' : ''}</p>
+    ${wg ? `<div class="bar ${g.week_done ? 'done' : ''}"><i style="width:${Math.min(100, pct(wb, wg))}%"></i></div>` : ''}
+    <p class="muted" style="margin:8px 0 0">Récompense : ${fmt(g.week_reward)} 🪙 par participant${g.last_winner ? ` · gagnant de la semaine dernière : <b>${esc(g.last_winner)}</b> (${fmt(g.last_winner_blocks)} blocs)` : ''}</p>`;
+  const ad = (G.artifacts_days || []).slice(-60);
+  chart('cArtDays', 'bar', ad.map(d => dayLbl(d.d)), [{ label: 'Artefacts', data: ad.map(d => d.n), color: '--mustard' }]);
+  $('rules').innerHTML = kv([['Inscriptions', g.signups_open ? 'ouvertes' : 'fermées'], ['Validation automatique', g.auto_approve ? 'oui' : 'non'],
+    ['Joueurs max.', g.max_players ? fmt(g.max_players) : 'illimité'], ['Connectés max.', g.max_online ? fmt(g.max_online) : 'illimité'],
+    ['Pièges', g.traps_on ? 'activés' : 'coupés'], ['Robots en même temps', fmt(g.robots_max)], ['Salon', g.chat_locked ? '🔒 verrouillé' : 'ouvert'], ['Bot de modération', g.bot_on ? 'actif' : 'coupé']]);
+  const hall = G.hall || [];
+  $('tHall').innerHTML = '<tr><th class="l">Cube</th><th class="l">Du</th><th class="l">Au</th><th>Détruit</th><th>Joueurs</th><th class="l">Vainqueur</th></tr>' +
+    (hall.map(h => `<tr><td class="l">${fmt(h.size)}³</td><td class="l">${dateTime(h.started_at)}</td><td class="l">${dateTime(h.ended_at)}</td><td>${fmt1(pct(h.destroyed, h.total))} %</td><td>${fmt(h.players)}</td><td class="l">${esc(h.winner || '—')}</td></tr>`).join('') || '<tr><td class="l empty" colspan="6">C’est le tout premier cube.</td></tr>');
+}
+
+let plSort = { k: 'blocks', dir: -1 }, plFilter = '';
+$('plSearch').oninput = e => { plFilter = e.target.value.trim().toLowerCase(); rPlayers(); };
+function rPlayers() {
+  const ps = players(), ok = approved(), on = onlineIds(), S = G.sessions || [];
+  const mins = S.reduce((a, s) => a + s.d, 0) / 60e3, avg = S.length ? mins / S.length : 0;
+  const top = ok.slice().sort((a, b) => b.blocks - a.blocks)[0];
+  $('pTiles').innerHTML = [
+    tile('Comptes', fmt(ps.length), `${fmt(ok.length)} validés`, '--indigo'),
+    tile('En ligne', fmt(new Set(M.conns.filter(c => !c.admin).map(c => c.id)).size), `record ${fmt(M.peak)}${M.peak_at ? ' (' + dateTime(M.peak_at) + ')' : ''}`, '--sage'),
+    tile('Sessions enregistrées', fmt(S.length), `durée moyenne ${dur(avg * 60)}`, '--sky'),
+    tile('Temps de jeu total', dur(mins * 60), 'sur les sessions enregistrées', '--plum'),
+    tile('Meilleur casseur', top?.blocks > 0 ? esc(top.pseudo) : '—', top?.blocks > 0 ? `${fmt(top.blocks)} blocs` : 'personne encore', '--accent'),
+  ].join('');
+  const t10 = ok.slice().sort((a, b) => b.blocks - a.blocks).slice(0, 10);
+  chart('cTop', 'bar', t10.map(p => p.pseudo), [{ label: 'Blocs', data: t10.map(p => +p.blocks), multi: true }], { horizontal: true });
+  let c = 0; const su = (G.signups || []).map(x => [x.d, c += x.n]);
+  chart('cSignups', 'line', su.map(x => dayLbl(x[0])), [{ label: 'Comptes', data: su.map(x => x[1]), fill: true, stepped: true, tension: 0, color: '--indigo' }]);
+  const byDay = new Map(); for (const s of S) { const d = parisDay(s.s), o = byDay.get(d) || [0, 0]; o[0]++; o[1] += s.d / 60e3; byDay.set(d, o); }
+  const bd = [...byDay].sort((a, b) => a[0] < b[0] ? -1 : 1).slice(-45);
+  chart('cSessDays', 'bar', bd.map(x => dayLbl(x[0])), [{ label: 'Sessions', data: bd.map(x => x[1][0]), color: '--sky' }, { label: 'Minutes jouées', data: bd.map(x => Math.round(x[1][1])), type: 'line', yAxisID: 'y2', color: '--accent', borderColor: css('--accent'), backgroundColor: css('--accent'), pointRadius: 2, tension: .3 }], { y2: true });
+  const hs = Array.from({ length: 7 }, () => Array(24).fill(0));
+  for (const s of S) { const [d, h] = parisParts(s.s); hs[d][h]++; }
+  heatmap('heatSess', hs);
+  const cnt = k => { const m = new Map(); for (const s of S) { const v = s[k] || '?'; m.set(v, (m.get(v) || 0) + 1); } return [...m].sort((a, b) => b[1] - a[1]).slice(0, 7); };
+  const dv = cnt('dev'), co = cnt('c');
+  chart('cDev', 'doughnut', dv.map(x => x[0]), [{ data: dv.map(x => x[1]), multi: true, borderWidth: 0 }]);
+  chart('cCountry', 'doughnut', co.map(x => x[0]), [{ data: co.map(x => x[1]), multi: true, borderWidth: 0 }]);
+  const COLS = [['pseudo', 'Joueur', 'l'], ['blocks', 'Blocs'], ['hits', 'Coups'], ['week_blocks', 'Semaine'], ['purse', '🪙 Poche'], ['gold_found', '🪙 Trouvé'],
+    ['arts_found', 'Art. trouvés'], ['arts_used', 'Art. utilisés'], ['bag_arts', 'En sac'], ['chests', 'Coffres'], ['missions', 'Missions'], ['crafted', 'Fabriqués'],
+    ['trades', 'Échanges'], ['deepest', 'Profondeur'], ['combo', 'Combo'], ['best_cps', 'Coups/s max'], ['chat_n', 'Messages'], ['trophies', '🏆'], ['created_at', 'Inscrit'], ['last_seen', 'Vu']];
+  let list = ps.filter(p => !plFilter || p.pseudo.toLowerCase().includes(plFilter));
+  const k = plSort.k; list.sort((a, b) => { const x = a[k], y = b[k]; if (k === 'pseudo') return plSort.dir * x.localeCompare(y); if (k === 'created_at' || k === 'last_seen') return plSort.dir * ((x ? new Date(x) : 0) - (y ? new Date(y) : 0)); return plSort.dir * ((+x || 0) - (+y || 0)); });
+  $('plCount').textContent = `${list.length} / ${ps.length}`;
+  $('tPlayers').innerHTML = '<tr>' + COLS.map(([key, lbl, cl]) => `<th class="${cl || ''}" ${plSort.k === key ? `aria-sort="${plSort.dir > 0 ? 'ascending' : 'descending'}"` : ''}><button type="button" data-k="${key}">${lbl}${plSort.k === key ? (plSort.dir > 0 ? ' ↑' : ' ↓') : ''}</button></th>`).join('') + '</tr>' +
+    list.map(p => `<tr><td class="l name">${on.has(p.id) ? '<span class="dot"></span>' : ''}${esc(p.avatar || '')} <b>${esc(p.pseudo)}</b>${p.is_mod ? ' 🛡️' : ''} ${p.status !== 'approved' ? `<span class="chip ${p.status === 'refused' ? 'bad' : 'none'}">${p.status === 'refused' ? 'refusé' : 'en attente'}</span>` : ''}</td>` +
+      COLS.slice(1).map(([key]) => `<td>${key === 'created_at' || key === 'last_seen' ? ago(p[key]) : fmt(p[key])}</td>`).join('') + '</tr>').join('');
+  $('tPlayers').querySelectorAll('[data-k]').forEach(b => b.onclick = () => { const key = b.dataset.k; plSort = plSort.k === key ? { k: key, dir: -plSort.dir } : { k: key, dir: key === 'pseudo' ? 1 : -1 }; rPlayers(); });
+}
+
+function rEco() {
+  const inv = G.inventory || [], ps = approved(), get = k => +(inv.find(x => x.kind === k)?.n || 0);
+  const goldFound = ps.reduce((a, p) => a + (+p.gold_found || 0), 0);
+  const m = G.market || {}, R = G.robots || [], act = R.filter(r => r.status === 'active');
+  const artsInBags = inv.filter(x => !['or', 'silex', 'fer', 'poudre', 'cristal'].includes(x.kind) && !/^robot/.test(x.kind)).reduce((a, x) => a + +x.n, 0);
+  $('eTiles').innerHTML = [
+    tile('Or en circulation', `${fmt(get('or'))}<small>🪙</small>`, `${fmt(goldFound)} 🪙 trouvés dans le cube`, '--mustard'),
+    tile('Artefacts dans les sacs', fmt(artsInBags), `${fmt(ps.reduce((a, p) => a + (+p.arts_used || 0), 0))} déjà utilisés`, '--accent'),
+    tile('Matériaux', fmt(get('silex') + get('fer') + get('poudre') + get('cristal')), `🪨 ${fmt(get('silex'))} · 🔩 ${fmt(get('fer'))} · 🧪 ${fmt(get('poudre'))} · 💎 ${fmt(get('cristal'))}`, '--clay'),
+    tile('Marché', `${fmt(m.offers)}<small>offres</small>`, `enchères : ${fmt(m.auctions_open)} en cours / ${fmt(m.auctions)} · ${fmt(m.auctions_gold)} 🪙 échangés`, '--indigo'),
+    tile('Robots au travail', fmt(act.length), `${fmt(R.reduce((a, r) => a + r.blocks, 0))} blocs cassés par les robots`, '--sky'),
+  ].join('');
+  const rich = ps.slice().sort((a, b) => b.purse - a.purse).slice(0, 10);
+  chart('cRich', 'bar', rich.map(p => p.pseudo), [{ label: '🪙', data: rich.map(p => +p.purse), multi: true }], { horizontal: true });
+  const bags = inv.filter(x => x.kind !== 'or').slice(0, 16);
+  chart('cBags', 'bar', bags.map(x => item(x.kind).join(' ')), [{ label: 'Quantité', data: bags.map(x => +x.n), color: '--sage' }], { horizontal: true, tip: c => ` ${fmt(c.raw)} (${fmt(bags[c.dataIndex].owners)} joueurs)` });
+  $('tRobots').innerHTML = '<tr><th class="l">Robot</th><th class="l">À</th><th class="l">État</th><th>Blocs</th><th>Pièges</th><th class="l">Lancé</th></tr>' +
+    (R.slice(0, 25).map(r => `<tr><td class="l">${esc(r.icon)} ${esc(r.name)}</td><td class="l">${esc(r.pseudo || '?')}</td><td class="l">${r.status === 'active' ? `<span class="chip good">au travail · ${fmt(100 - pct(r.left_sec, r.total_sec))} %</span>` : r.status === 'done' ? '<span class="chip none">fini</span>' : '<span class="chip bad">arrêté</span>'}</td><td>${fmt(r.blocks)}</td><td>${fmt(r.traps)}</td><td class="l">${ago(r.started_at)}</td></tr>`).join('') || '<tr><td class="l empty" colspan="6">Aucun robot lancé.</td></tr>');
+  $('tModels').innerHTML = '<tr><th class="l">Modèle</th><th>Prix</th><th>Stock</th><th>Vendus</th><th>Rythme</th></tr>' +
+    ((G.robot_models || []).map(r => `<tr><td class="l">${esc(r.icon)} ${esc(r.name)} ${r.enabled ? '' : '<span class="chip none">caché</span>'}</td><td>${r.price ? fmt(r.price) + ' 🪙' : '—'}</td><td>${r.stock == null ? '∞' : fmt(r.stock)}</td><td>${fmt(r.sold)}</td><td>${fmt1(r.rate)}/s · ${fmt(r.minutes)} min</td></tr>`).join('') || '<tr><td class="l empty" colspan="5">Aucun modèle.</td></tr>');
+  const du = new Map((G.duels || []).map(d => [d.status, d]));
+  const dn = s => fmt(du.get(s)?.n || 0);
+  $('duels').innerHTML = kv([['Terminés', dn('done')], ['En cours', dn('live')], ['En attente de réponse', dn('open')], ['Refusés / expirés', fmt((du.get('refused')?.n || 0) + (du.get('expired')?.n || 0) + (du.get('cancelled')?.n || 0))],
+    ['Mises jouées', fmt([...du.values()].reduce((a, d) => a + d.stakes, 0)) + ' 🪙']]);
+}
+
+function rChat() {
+  const c = G.chat || {}, mo = G.moderation || {};
+  $('sTiles').innerHTML = [
+    tile('Messages', fmt(c.total), `${fmt(c.d1)} sur 24 h · ${fmt(c.d7)} sur 7 jours`, '--plum'),
+    tile('Messages privés', fmt(c.pm), `${fmt(c.pm7)} sur 7 jours`, '--indigo'),
+    tile('Réactions', fmt(c.reactions), 'émojis posés sur les messages', '--mustard'),
+    tile('Masqués par le bot', fmt(c.hidden), `${fmt(c.shadow)} en sourdine fantôme`, '--clay'),
+    tile('Signalements', `${fmt(mo.reports_open)}<small>ouverts</small>`, `${fmt(mo.reports)} au total`, mo.reports_open ? '--accent' : '--sage'),
+  ].join('');
+  const cd = G.chat_days || [];
+  chart('cChatDays', 'bar', cd.map(d => dayLbl(d.d)), [{ label: 'Messages', data: cd.map(d => d.n), color: '--plum' }]);
+  const hh = Array(24).fill(0); for (const x of G.chat_hours || []) hh[x.h] = x.n;
+  chart('cChatHours', 'bar', hh.map((_, k) => k + ' h'), [{ label: 'Messages', data: hh, color: '--indigo' }], { xticks: 12 });
+  const ch = players().filter(p => p.chat_n > 0).sort((a, b) => b.chat_n - a.chat_n).slice(0, 10);
+  $('chatters').innerHTML = li(ch.map(p => [esc(p.pseudo), fmt(p.chat_n) + ' messages']));
+  $('emojis').innerHTML = li((G.chat_emojis || []).map(e => [`<span style="font-size:1.2rem">${esc(e.emoji)}</span>`, fmt(e.n)]));
+  $('modList').innerHTML = li([[`Actions de modération`, fmt(mo.actions30)], [`dont 🤖 bot`, fmt(mo.bot30)], ...(G.mod_actions || []).map(a => [esc(a.action), fmt(a.n)])]);
+}
+
+function rServer() {
+  const H = hist(), lab = histLbl(), m = M.mem, last = H.slice(-1)[0] || {}, disk = M.disk, bk = M.backups || [];
+  $('svTiles').innerHTML = [
+    tile('Processeur (PC)', `${fmt(M.cpu_pct)}<small>%</small>`, `charge ${M.load.map(x => fmt1(x)).join(' · ')}`, M.cpu_pct > 80 ? '--clay' : '--mustard', M.cpu_pct),
+    tile('Processeur (jeu)', `${fmt1(M.proc_pct)}<small>%</small>`, `≈ ${fmt1(M.proc_pct * M.cpus)} % d’un cœur`, '--accent', M.proc_pct * M.cpus),
+    tile('Mémoire du PC', `${bytes(m.total - m.free)}`, `sur ${bytes(m.total)}`, '--sky', pct(m.total - m.free, m.total)),
+    tile('Mémoire du jeu', bytes(m.rss), `tas ${bytes(m.heap)} / ${bytes(m.heap_total)}`, '--indigo'),
+    tile('Réactivité', `${fmt1(M.lag.p99)}<small>ms</small>`, `retard moyen ${fmt1(M.lag.mean)} ms · max ${fmt(M.lag.max)} ms`, M.lag.p99 > 100 ? '--clay' : '--sage'),
+    tile('Réponses', `${fmt1(M.totals.rpc_avg_ms)}<small>ms</small>`, `${fmt(M.totals.rpc)} appels depuis le démarrage`, '--plum'),
+    tile('Disque libre', disk ? bytes(disk.free) : '—', disk ? `sur ${bytes(disk.total)}` : '', '--grey', disk ? 100 - pct(disk.free, disk.total) : null),
+    tile('Partie (base)', bytes(M.data_size), `${fmt(M.db?.query_ms)} ms pour la mesurer`, '--mustard'),
+    tile('Sauvegardes', fmt(bk.length), M.last_backup ? `dernière ${ago(M.last_backup.at)}` : (bk.length ? `dernière ${ago(bk[bk.length - 1].at)}` : 'aucune'), '--sage'),
+    tile('Erreurs', fmt(M.totals.err), `${fmt(H.reduce((a, h) => a + (h.err || 0), 0))} sur 24 h`, M.totals.err ? '--clay' : '--sage'),
+  ].join('');
+  chart('cCpu', 'line', lab, [{ label: 'PC entier', data: H.map(h => h.cpu), color: '--mustard', fill: true }, { label: 'Jeu', data: H.map(h => h.proc), color: '--accent' }], { yfmt: v => v + ' %' });
+  chart('cMem', 'line', lab, [{ label: 'Mémoire du PC (%)', data: H.map(h => h.mem), color: '--sky', fill: true }, { label: 'Jeu (Mo)', data: H.map(h => h.rss), color: '--indigo', yAxisID: 'y2' }], { y2: true });
+  chart('cRpc', 'line', lab, [{ label: 'Moyenne', data: H.map(h => h.ms), color: '--sage', fill: true }, { label: 'p95', data: H.map(h => h.p95), color: '--plum' }, { label: 'Max', data: H.map(h => h.max), color: '--clay', borderDash: [4, 3], borderWidth: 1 }]);
+  chart('cLag', 'line', lab, [{ label: 'Retard p99', data: H.map(h => h.lag99), color: '--clay', fill: true }, { label: 'Moyen', data: H.map(h => h.lag), color: '--sage' }]);
+  chart('cNet', 'line', lab, [{ label: 'Envoyé', data: H.map(h => Math.round((h.bout || 0) / 1024)), color: '--accent', fill: true }, { label: 'Reçu', data: H.map(h => Math.round((h.bin || 0) / 1024)), color: '--sky' }]);
+  const W = M.week || [];
+  chart('cWeek', 'line', W.map(w => new Date(w.t).toLocaleString('fr-FR', { weekday: 'short', hour: '2-digit', minute: '2-digit' })), [{ label: 'Max. en ligne', data: W.map(w => w.online), color: '--sage', stepped: true, tension: 0 }, { label: 'Coups', data: W.map(w => w.hits), color: '--accent', yAxisID: 'y2' }], { y2: true });
+  $('coreTxt').textContent = `${M.cpus} cœurs${M.cpu_mhz ? ` · ${fmt(M.cpu_mhz)} MHz` : ''}`;
+  $('cores').innerHTML = (M.cores || []).map((v, k) => `<i title="Cœur ${k + 1} : ${v} %" style="--h:${Math.max(2, v)}%;--c:var(${v > 80 ? '--clay' : v > 50 ? '--mustard' : '--sky'})"></i>`).join('');
+  $('machine').innerHTML = kv([['Processeur', esc(M.cpu_model)], ['Système', esc(M.platform)], ['Nom du PC', esc(M.hostname)], ['Node', esc(M.node)], ['Base', 'PGlite ' + esc(M.pglite || '')],
+    M.battery && ['Batterie', `${fmt(M.battery.pct)} % ${M.battery.ac ? '🔌' : '🔋'}`], ['Démarré', dateTime(M.started)], ['Ressources ouvertes', fmt(M.handles)]]);
+  $('storage').innerHTML = kv([['Partie', bytes(M.data_size)], ['Musique', bytes(M.music_size)], ['Sauvegardes', `${fmt(bk.length)} · ${bytes(M.backups_size)}`],
+    bk.length && ['Dernière sauvegarde', `${dateTime(bk[bk.length - 1].at)} (${bytes(bk[bk.length - 1].size)})`], M.db?.vacuum && ['Dernier entretien', `${dateTime(M.db.vacuum.at)} · ${dur(M.db.vacuum.ms / 1000)}`],
+    ['Films des cubes', `${fmt(M.replay?.files)} · ${bytes(M.replay?.bytes)}`], ['Disque', disk ? `${bytes(disk.free)} libres / ${bytes(disk.total)}` : '—'], ['Cube en mémoire', M.blocks_cache?.ready ? `prêt · ${bytes(M.blocks_cache.gz)} compressé` : 'en préparation']]);
+  const t = M.totals;
+  $('network').innerHTML = kv([['Tunnel', `${M.tunnel?.ok ? '✅' : '⚠️'} ${esc(M.tunnel?.mode || '')}`], ['Coupures du tunnel', fmt(M.tunnel?.drops)], ['Connexions ouvertes', fmt(M.sockets)],
+    ['Envoyé depuis le démarrage', bytes(t.bout + t.wsOut)], ['Reçu', bytes(t.bin)], ['Pages et requêtes', fmt(t.http)], ['Réponses OK / refus / erreurs', `${fmt(M.http['2xx'])} / ${fmt(M.http['4xx'])} / ${fmt(M.http['5xx'])}`],
+    ['Connexions au compte', `${fmt(t.logins)} (${fmt(t.loginFails)} ratées)`], ['Inscriptions', fmt(t.signups)], ['Notifications', `${M.push?.on ? 'actives' : 'coupées'} · ${fmt(M.push?.subs)} appareils`],
+    ['Notifications envoyées', `${fmt(M.push?.ok)} (${fmt(M.push?.fail)} ratées)`]]);
+  $('tRpc').innerHTML = '<tr><th class="l">Fonction</th><th>Appels</th><th>Moy.</th><th>p95</th><th>Max</th><th>Total</th></tr>' +
+    (M.rpc || []).slice(0, 15).map(r => `<tr><td class="l">${esc(r.fn)}${r.err ? ` <span class="chip bad">${fmt(r.err)} err.</span>` : ''}</td><td>${fmt(r.n)}</td><td>${fmt1(r.avg)} ms</td><td>${fmt(r.p95)} ms</td><td>${fmt(r.max)} ms</td><td>${fmt1(r.total_s)} s</td></tr>`).join('');
+  const db = M.db || {};
+  $('dbTxt').textContent = db.total ? bytes(db.total) : '';
+  $('tDb').innerHTML = '<tr><th class="l">Table</th><th>Lignes</th><th>Taille</th></tr>' + (db.tables || []).slice(0, 15).map(x => `<tr><td class="l">${esc(String(x.name).replace(/^public\./, ''))}</td><td>${fmt(x.rows)}</td><td>${bytes(x.size)}</td></tr>`).join('');
+  const ws = Object.entries(M.ws || {}).sort((a, b) => b[1] - a[1]).slice(0, 12);
+  chart('cWs', 'bar', ws.map(x => x[0]), [{ label: 'Messages', data: ws.map(x => x[1]), color: '--sky' }], { horizontal: true });
+  $('errList').innerHTML = (M.errors || []).length ? M.errors.slice(0, 15).map(e => `<li><span class="err"><b>${esc(e.where)}</b> · ${esc(e.msg)}</span><span>${ago(e.at)}</span></li>`).join('') : '<li class="empty">Aucune erreur depuis le démarrage 🎉</li>';
+}
+
+$('sessMore').onclick = () => { sessShown += 100; rJournal(); };
+function rJournal() {
+  const S = (G.sessions || []).slice().reverse(), open = (G.open_sessions || []).filter(s => s.online);
+  $('tSess').innerHTML = '<tr><th class="l">Joueur</th><th class="l">Début</th><th>Durée</th><th>Blocs</th><th>Coups</th><th>🪙</th><th class="l">Appareil</th><th class="l">Pays</th></tr>' +
+    open.map(s => `<tr class="me"><td class="l"><span class="dot"></span><b>${esc(s.p)}</b></td><td class="l">${dateTime(s.s)}</td><td>${dur((Date.now() - s.s) / 1000)} · en cours</td><td>—</td><td>—</td><td>—</td><td class="l">${esc(s.dev || '')}</td><td class="l">${esc(s.c || '')}</td></tr>`).join('') +
+    (S.slice(0, sessShown).map(s => `<tr><td class="l">${esc(s.p)}</td><td class="l">${dateTime(s.s)}</td><td>${dur(s.d / 1000)}</td><td>${fmt(s.b)}</td><td>${fmt(s.h)}</td><td>${fmt(s.g)}</td><td class="l">${esc(s.dev || '')}</td><td class="l">${esc(s.c || '')}</td></tr>`).join('')
+      || (open.length ? '' : '<tr><td class="l empty" colspan="8">Aucune session enregistrée pour l’instant : le journal se remplit à chaque déconnexion d’un joueur.</td></tr>'));
+  $('sessMore').hidden = S.length <= sessShown;
+}
+
+/* =============== 🧭 Pilote automatique =============== */
+const AP = { d: null, gs: null, at: 0, busy: false, lf: 'act' };
+const MAT_IC = { silex: ['🪨', 'Silex'], fer: ['🔩', 'Fer'], poudre: ['🧪', 'Poudre noire'], cristal: ['💎', 'Cristal'] };
+document.querySelectorAll('[data-lf]').forEach(b => b.onclick = () => { AP.lf = b.dataset.lf; document.querySelectorAll('[data-lf]').forEach(x => x.setAttribute('aria-pressed', x === b)); apRender(); });
+async function rPilot() {
+  if (AP.busy) return;
+  if (!AP.d || Date.now() - AP.at > 20000) {
+    AP.busy = true;
+    try { const d = await post('/api/admin/autopilot', { full: true }); AP.d = d; AP.gs = d.current || {}; AP.at = Date.now(); }
+    catch (e) { $('apLead').textContent = '⚠️ ' + e.message + ' — installe d’abord la mise à jour 14.5 du jeu'; AP.busy = false; return; }
+    AP.busy = false;
+  }
+  apRender();
+}
+const apTime = t => new Date(t).toLocaleString('fr-FR', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+function apRender() {
+  const a = AP.d, gs = AP.gs || {}; if (!a) return;
+  const pc = a.pace, H = a.hist || [], base = a.base || {};
+  const verdict = !pc || pc.conf < 0.25 ? ['⏳ mesure en cours', '--grey'] : pc.R > 1.25 ? ['🚀 trop rapide', '--clay'] : pc.R < 0.8 ? ['🐢 trop lent', '--mustard'] : ['✅ bon rythme', '--sage'];
+  $('apLead').innerHTML = !a.on
+    ? `Le pilote est <b>arrêté</b>. Lance-le depuis le jeu : 👑 › 🧭 Pilote automatique. ${a.log?.length ? 'Son journal reste consultable plus bas.' : ''}`
+    : `En marche depuis ${dateTime(a.start)} · fin du cube visée le <b>${new Date(a.end).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}</b> · ${fmt(a.steps)} réglage${a.steps > 1 ? 's' : ''}${a.prices ? ' · prix et atelier compris' : ''}.
+       ${a.waiting ? '<br>⏸ <b>En attente</b> : aucun joueur connecté, il reprend dès que quelqu’un joue.' : a.next ? `<br>Prochain réglage vers ${hm(a.next)}.` : ''}`;
+  const g = gs, sh = +g.mat_shift || 0;
+  $('apTiles').innerHTML = a.on || pc ? [
+    tile('État', a.on ? (a.waiting ? '⏸ En attente' : '● En marche') : '⏹ Arrêté', a.on ? `depuis ${ago(a.start)}` : '', a.on ? '--sage' : '--grey'),
+    tile('Fin visée', a.end ? new Date(a.end).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '—', pc ? `dans ${fmt1(pc.daysLeft)} j` : '', '--indigo'),
+    tile('Fin estimée', pc?.eta != null ? `${fmt(pc.eta)}<small>j</small>` : '—', 'au rythme des 48 dernières heures', verdict[1]),
+    tile('Rythme', verdict[0], pc ? `${fmt(pc.rate)} blocs/j · il en faut ${fmt(pc.need)}` : '', verdict[1]),
+    tile('Fiabilité de la mesure', pc ? `${fmt(pc.conf * 100)}<small>%</small>` : '—', 'pleine après 12 h de relevés', '--sky', pc ? pc.conf * 100 : 0),
+    tile('Artefacts cachés', `×${fmt1(a.A)}`, 'par rapport à la normale', '--accent'),
+    tile('Coffres dorés', `×${fmt1(a.Ch)}`, 'par rapport à la normale', '--mustard'),
+    tile('Richesse des joueurs', a.Q == null ? '—' : a.Q > 1.6 ? '💰 riches' : a.Q < 0.6 ? '🪫 pauvres' : '✅ équilibrée', a.gold ? `${fmt(a.gold.purse)} 🪙 en poche (médiane)` : 'pas de joueur actif', '--plum'),
+    tile('Profondeur 💎', sh > 0 ? `+${fmt(sh * 100)}<small>%</small>` : 'normale', a.digT != null ? `on creuse vers ${fmt(a.digT * 100)} % de la profondeur` : 'personne ne creuse en ce moment', '--sky'),
+    tile('Prix · atelier', a.prices ? `×${fmt1(a.P)} · ×${fmt1(a.C)}` : 'non gérés', a.prices ? 'par rapport au lancement' : 'option non cochée au lancement', '--clay'),
+  ].join('') : '';
+  // trajectoire : blocs détruits et ligne idéale jusqu'à la date de fin
+  const S = a.samples || [], total = (G?.game?.size || gs.size || 0) ** 3;
+  if (S.length > 1 && a.start && a.end) {
+    const t0 = new Date(a.start).getTime(), t1 = new Date(a.end).getTime();
+    const d0 = (S.find(x => x[0] >= t0 - 6e5) || S[0])[1];
+    const pts = S.filter((x, k) => k % Math.max(1, Math.ceil(S.length / 300)) === 0 || k === S.length - 1);
+    const lbl = pts.map(x => apTime(x[0]));
+    const ideal = pts.map(x => x[0] < t0 ? null : Math.round(d0 + (total - d0) * Math.min(1, (x[0] - t0) / Math.max(1, t1 - t0))));
+    chart('cApTraj', 'line', lbl, [{ label: 'Blocs détruits', data: pts.map(x => x[1]), color: '--accent', fill: true }, { label: 'Trajectoire idéale', data: ideal, color: '--sage', borderDash: [5, 4], borderWidth: 1.4, spanGaps: true }], { xticks: 6 });
+  } else chart('cApTraj', 'line', [], [{ label: 'Blocs', data: [] }]);
+  const HL = H.map(h => apTime(h.t));
+  chart('cApR', 'line', HL, [{ label: 'Rythme (1 = parfait)', data: H.map(h => Math.min(4, h.R)), color: '--accent', fill: false },
+    { label: 'Trop rapide au-dessus', data: H.map(() => 1.25), color: '--clay', borderDash: [3, 3], borderWidth: 1 },
+    { label: 'Trop lent en dessous', data: H.map(() => 0.8), color: '--mustard', borderDash: [3, 3], borderWidth: 1 }], { xticks: 6 });
+  chart('cApMult', 'line', HL, [{ label: 'Artefacts', data: H.map(h => h.A), color: '--accent' }, { label: 'Coffres', data: H.map(h => h.Ch), color: '--mustard' },
+    ...(a.prices ? [{ label: 'Prix', data: H.map(h => h.P), color: '--indigo' }, { label: 'Atelier', data: H.map(h => h.C), color: '--plum' }] : [])], { xticks: 6, yfmt: v => '×' + NF1.format(v) });
+  chart('cApFreq', 'line', HL, [{ label: 'Or : 1 bloc sur', data: H.map(h => h.ge), color: '--mustard' }, { label: 'Matériaux : 1 bloc sur', data: H.map(h => h.me), color: '--sage' },
+    { label: 'Décalage 💎 (%)', data: H.map(h => Math.round((h.sh || 0) * 100)), color: '--sky', yAxisID: 'y2', stepped: true, tension: 0 }], { xticks: 6, y2: true });
+  const X = a.X || {}, mw = g.mat_w || {}, bw = base.mat_w || {};
+  $('tApMat').innerHTML = '<tr><th class="l">Matériau</th><th>Quantité</th><th>Au lancement</th><th class="l">En poche</th></tr>' +
+    Object.entries(MAT_IC).map(([k, [ic, nm]]) => { const x = X[k]; return `<tr><td class="l">${ic} ${nm}</td><td>×${fmt1(mw[k] ?? 1)}</td><td>×${fmt1(bw[k] ?? 1)}</td>
+      <td class="l">${x == null ? '—' : x < 0.5 ? '<span class="chip bad">en manque</span>' : x > 3 ? '<span class="chip none">en trop</span>' : '<span class="chip good">juste ce qu’il faut</span>'}</td></tr>`; }).join('') +
+    `<tr><td class="l">⛏️ Fréquence</td><td>1 / ${fmt(g.mat_every)}</td><td>${base.mat_every ? '1 / ' + fmt(base.mat_every) : '—'}</td><td></td></tr>
+     <tr><td class="l">🪙 Or</td><td>1 / ${fmt(g.gold_every)}</td><td>${base.gold_every ? '1 / ' + fmt(base.gold_every) : '—'}</td><td class="l">${a.gold ? (a.gold.y < 0.4 ? '<span class="chip bad">poches vides</span>' : a.gold.y > 3 ? '<span class="chip none">poches pleines</span>' : '<span class="chip good">ok</span>') : '—'}</td></tr>`;
+  const lm = Math.max(1, Math.floor(((gs.size || 2) - 1) / 2));
+  $('apDepth').innerHTML = kv([['Où l’on creuse', a.digT != null ? `couche ≈ ${fmt(a.digT * lm)} (${fmt(a.digT * 100)} % de la profondeur)` : '—'],
+    ['Décalage des matériaux', sh > 0 ? `remontés de ${fmt(sh * 100)} %` : 'aucun (profondeur normale)'],
+    ['🧪 Poudre noire dès', `${fmt(Math.max(0, 25 - sh * 100))} % de la profondeur`], ['💎 Cristal dès', `${fmt(Math.max(0, 50 - sh * 100))} % de la profondeur`],
+    ['💎 Cristal abondant dès', `${fmt(Math.max(0, 75 - sh * 100))} % de la profondeur`]]);
+  const shop = g.shop || {}, bp = base.prices || {};
+  const pk = Object.keys({ ...bp, ...shop }).filter(k => (bp[k] || shop[k]) > 0).sort((x, y) => (shop[y] || 0) - (shop[x] || 0));
+  $('apPriceTxt').textContent = a.prices ? 'gérés par le pilote' : 'non gérés (option non cochée)';
+  $('tApPrice').innerHTML = '<tr><th class="l">Artefact</th><th>Prix</th><th>Au lancement</th><th>Écart</th></tr>' +
+    (pk.map(k => { const [ic, nm] = item(k), c = shop[k] || 0, b0 = bp[k]; const d = b0 ? Math.round(100 * (c - b0) / b0) : null;
+      return `<tr><td class="l">${ic} ${esc(nm)}</td><td>${fmt(c)} 🪙</td><td>${b0 ? fmt(b0) + ' 🪙' : '—'}</td><td>${d == null ? '' : d === 0 ? '=' : `<span style="color:var(${d > 0 ? '--clay' : '--sage'})">${d > 0 ? '+' : ''}${d} %</span>`}</td></tr>`; }).join('') || '<tr><td class="l empty" colspan="4">Rien en vente.</td></tr>');
+  const rec = g.recipes || {}, br = base.recipes || {};
+  const ingTxt = o => Object.entries(o || {}).map(([k, q]) => `${q} ${item(k)[0]}`).join(' + ');
+  $('apRecTxt').textContent = a.prices ? 'gérées par le pilote' : 'non gérées (option non cochée)';
+  $('tApRec').innerHTML = '<tr><th class="l">Objet</th><th class="l">Recette actuelle</th><th class="l">Au lancement</th></tr>' +
+    (Object.keys(rec).sort().map(k => { const same = JSON.stringify(Object.entries(rec[k]).sort()) === JSON.stringify(Object.entries(br[k] || rec[k]).sort());
+      return `<tr><td class="l">${item(k)[0]} ${esc(item(k)[1])}</td><td class="l">${ingTxt(rec[k])}</td><td class="l ${same ? 'muted' : ''}">${br[k] ? (same ? '=' : ingTxt(br[k])) : '—'}</td></tr>`; }).join('') || '<tr><td class="l empty" colspan="3">Aucune recette.</td></tr>');
+  const L = (a.log || []).filter(l => AP.lf === 'all' || l.kind !== 'ok');
+  $('apLogTxt').textContent = `${(a.log || []).length} entrées`;
+  $('apLog').innerHTML = L.length ? L.map(l => `<li><span>${{ act: '⚙️', ok: '✅', start: '▶️', stop: '⏹' }[l.kind] || '•'} ${esc(l.txt.replace(/^[▶️⏹]️?\s*/u, ''))}</span><span>${dateTime(l.at)}</span></li>`).join('') : '<li class="empty">Aucune décision pour l’instant.</li>';
+}
+
+/* =============== 📱 Appareils =============== */
+const DEV = { d: null, at: 0, busy: false, player: '', sort: 'last' };
+$('devPlayer').onchange = e => { DEV.player = e.target.value; devRender(); };
+$('devSort').onchange = e => { DEV.sort = e.target.value; devRender(); };
+async function rDevices() {
+  if (!DEV.busy && (!DEV.d || Date.now() - DEV.at > 20000)) {
+    DEV.busy = true;
+    try { DEV.d = await post('/api/admin/devices'); DEV.at = Date.now(); }
+    catch (e) { $('devLead').textContent = '⚠️ ' + e.message + ' — installe d’abord la mise à jour 14.9 du jeu.'; DEV.busy = false; return; }
+    DEV.busy = false;
+  }
+  devRender();
+}
+// lecture de la carte d'identité du navigateur : modèle, système, navigateur
+function devParse(i) {
+  const ua = i.ua || '', ch = i.uach || {}, o = {};
+  const ipad = /iPad/.test(ua) || (/Macintosh/.test(ua) && i.touch > 1);
+  o.kind = ipad || (/Android/.test(ua) && !/Mobile/.test(ua)) ? 'tablette' : ch.mobile || /Mobi|iPhone|Android/.test(ua) ? 'téléphone' : 'ordinateur';
+  o.icon = { 'téléphone': '📱', tablette: '📟', ordinateur: '💻' }[o.kind];
+  let m;
+  if ((m = ua.match(/Android (\d+(?:\.\d+)?)/))) o.os = 'Android ' + (ch.platformVersion ? ch.platformVersion.split('.')[0] : m[1]);
+  else if ((m = ua.match(/(?:iPhone|CPU) OS (\d+)[_.](\d+)/))) o.os = (ipad ? 'iPadOS ' : 'iOS ') + m[1] + '.' + m[2];
+  else if (ipad) o.os = 'iPadOS';
+  else if (/Windows/.test(ua)) o.os = ch.platform === 'Windows' && ch.platformVersion ? (parseInt(ch.platformVersion) >= 13 ? 'Windows 11' : 'Windows 10') : 'Windows 10/11';
+  else if (/CrOS/.test(ua)) o.os = 'ChromeOS';
+  else if (/Mac OS X/.test(ua)) o.os = 'macOS' + (ch.platformVersion ? ' ' + ch.platformVersion.split('.').slice(0, 2).join('.') : '');
+  else if (/Linux/.test(ua)) o.os = 'Linux';
+  else o.os = ch.platform || '?';
+  const fv = (ch.fullVersionList || []).filter(b => b && b.brand && !/Not.?A.?Brand|Chromium/i.test(b.brand));
+  if (fv.length) o.br = `${fv[0].brand.replace('Google ', '').replace('Microsoft ', '')} ${String(fv[0].version).split('.')[0]}`;
+  else if ((m = ua.match(/SamsungBrowser\/(\d+)/))) o.br = 'Samsung Internet ' + m[1];
+  else if ((m = ua.match(/Edg(?:A|iOS)?\/(\d+)/))) o.br = 'Edge ' + m[1];
+  else if ((m = ua.match(/OPR\/(\d+)/))) o.br = 'Opera ' + m[1];
+  else if ((m = ua.match(/(?:Firefox|FxiOS)\/(\d+)/))) o.br = 'Firefox ' + m[1];
+  else if ((m = ua.match(/CriOS\/(\d+)/))) o.br = 'Chrome ' + m[1];
+  else if ((m = ua.match(/Chrome\/(\d+)/))) o.br = 'Chrome ' + m[1];
+  else if ((m = ua.match(/Version\/(\d+(?:\.\d+)?).*Safari/))) o.br = 'Safari ' + m[1];
+  else o.br = '?';
+  o.brName = o.br.replace(/ \d.*$/, '');
+  o.model = ch.model || ((m = ua.match(/Android [\d.]+; (?:[a-z]{2}[-_][a-z]{2}; )?([^;)]+?)(?: Build|\))/i)) && m[1] !== 'K' ? m[1].trim() : null)
+    || (/iPhone/.test(ua) ? 'iPhone' : ipad ? 'iPad' : /Macintosh/.test(ua) ? 'Mac' : o.kind === 'ordinateur' ? 'PC' : 'Android');
+  const g = i.gpu?.renderer || '';
+  o.gpu = (g.match(/ANGLE \([^,]+, ([^,]+?)(?: Direct3D| \(0x|,|\))/) || [])[1] || g.replace(/^ANGLE \(|\)$/g, '') || '?';
+  return o;
+}
+const FLAG = c => c && /^[A-Z]{2}$/.test(c) ? String.fromCodePoint(...[...c].map(x => 0x1F1A5 + x.charCodeAt(0))) : '';
+function devRender() {
+  const D = (DEV.d?.devices || []).map(x => ({ ...x, p: devParse(x.info || {}) }));
+  const sel = $('devPlayer'), names = [...new Set(D.map(x => x.pseudo))].sort();
+  if (sel.options.length !== names.length + 1) sel.innerHTML = '<option value="">Tous les joueurs</option>' + names.map(n => `<option ${DEV.player === n ? 'selected' : ''}>${esc(n)}</option>`).join('');
+  const L = D.filter(x => !DEV.player || x.pseudo === DEV.player);
+  const cnt = k => { const m = new Map(); for (const x of L) { const v = k(x); m.set(v, (m.get(v) || 0) + 1); } return [...m].sort((a, b) => b[1] - a[1]); };
+  const withFps = L.filter(x => x.perf?.fps), fl = withFps.slice().sort((a, b) => a.perf.fps - b.perf.fps);
+  $('devTiles').innerHTML = [
+    tile('Appareils connus', fmt(L.length), `${fmt(new Set(L.map(x => x.player)).size)} joueur${new Set(L.map(x => x.player)).size > 1 ? 's' : ''}`, '--indigo'),
+    tile('En ligne maintenant', fmt(L.filter(x => x.online).length), 'appareils ouverts sur le jeu', '--sage'),
+    tile('Téléphones', fmt(L.filter(x => x.p.kind === 'téléphone').length), `${fmt(L.filter(x => x.p.kind === 'tablette').length)} tablette(s) · ${fmt(L.filter(x => x.p.kind === 'ordinateur').length)} ordinateur(s)`, '--sky'),
+    tile('Nouveaux cette semaine', fmt(L.filter(x => Date.now() - new Date(x.first_seen) < 6048e5).length), 'appareils vus pour la 1re fois', '--mustard'),
+    tile('Moins fluide', fl[0] ? `${fmt(fl[0].perf.fps)}<small>img/s</small>` : '—', fl[0] ? `${esc(fl[0].p.model)} de ${esc(fl[0].pseudo)}` : 'pas encore mesuré', fl[0] && fl[0].perf.fps < 30 ? '--clay' : '--sage'),
+  ].join('');
+  const os = cnt(x => x.p.os.replace(/ [\d.]+$/, '')), br = cnt(x => x.p.brName), ty = cnt(x => x.p.kind);
+  chart('cDevOs', 'doughnut', os.map(x => x[0]), [{ data: os.map(x => x[1]), multi: true, borderWidth: 0 }]);
+  chart('cDevBr', 'doughnut', br.map(x => x[0]), [{ data: br.map(x => x[1]), multi: true, borderWidth: 0 }]);
+  chart('cDevType', 'doughnut', ty.map(x => x[0]), [{ data: ty.map(x => x[1]), multi: true, borderWidth: 0 }]);
+  chart('cDevFps', 'bar', fl.map(x => `${x.pseudo} · ${x.p.model}`), [{ label: 'images/s', data: fl.map(x => x.perf.fps), multi: true }], { horizontal: true });
+  const S = L.slice().sort((a, b) => DEV.sort === 'first' ? new Date(b.first_seen) - new Date(a.first_seen) : DEV.sort === 'sess' ? b.sessions - a.sessions
+    : DEV.sort === 'fps' ? (a.perf?.fps ?? 999) - (b.perf?.fps ?? 999) : new Date(b.last_seen) - new Date(a.last_seen));
+  $('devCards').innerHTML = S.map(x => { const i = x.info || {}, p = x.p, sc = i.screen || {}, n = i.net, pf = x.perf || {};
+    return `<div class="sheet"><h3><span>${p.icon} ${esc(p.model)} <small>${esc(p.os)} · ${esc(p.br)}</small></span>${x.online ? '<span class="chip good">en ligne</span>' : ''}</h3>
+      <p class="muted" style="margin:-4px 0 10px;font-size:.88rem">${esc(x.avatar || '')} <b style="color:var(--ink)">${esc(x.pseudo)}</b>${x.is_admin ? ' 👑' : ''} · ${fmt(x.sessions)} connexion${x.sessions > 1 ? 's' : ''} · vu ${ago(x.last_seen)} · 1re fois ${dateTime(x.first_seen)}</p>
+      <dl class="kv">${kv([
+        ['Écran', `${sc.w}×${sc.h} · densité ×${fmt1(sc.dpr)}${sc.orient ? ' · ' + (/portrait/.test(sc.orient) ? 'portrait' : 'paysage') : ''}`],
+        ['Fenêtre du jeu', sc.vw ? `${sc.vw}×${sc.vh}` : '—'],
+        ['Processeur', i.cores ? `${i.cores} cœurs${i.uach?.architecture ? ' · ' + esc(i.uach.architecture) + (i.uach.bitness ? ' ' + esc(i.uach.bitness) + ' bits' : '') : ''}` : '—'],
+        ['Mémoire', i.mem ? `≈ ${fmt1(i.mem)} Go ou plus` : 'non communiquée'],
+        ['Carte graphique', `${esc(p.gpu)}${i.gpu?.webgl2 ? ' · WebGL 2' : ''}`],
+        ['Fluidité', pf.fps ? `${fmt(pf.fps)} img/s · ${fmt(pf.slow)} % d’images lentes · pire ${fmt(pf.worst)} ms` : 'pas encore mesurée'],
+        ['Qualité graphique', esc({ auto: 'automatique', high: 'haute', low: 'économie' }[i.quality] || i.quality || '—')],
+        ['Réseau', n ? [n.type && ({ wifi: 'Wi-Fi', cellular: 'mobile', ethernet: 'câble' }[n.type] || n.type), n.eff && n.eff.toUpperCase(), n.down != null && `${fmt1(n.down)} Mb/s`, n.rtt != null && `${fmt(n.rtt)} ms`, n.save && 'économie de données'].filter(Boolean).join(' · ') : 'non communiqué (iPhone, Firefox…)'],
+        ['Lieu', [x.city, x.region, x.country && `${FLAG(x.country)} ${x.country}`].filter(Boolean).map(esc).join(' · ') || '—'],
+        ['Adresse IP', `<span class="mono">${esc(x.ip || '—')}</span>`],
+        (x.ips || []).length > 1 && ['Autres adresses', `<span class="mono" style="font-size:.78rem">${(x.ips || []).slice(1).map(esc).join(', ')}</span>`],
+        ['Langue · fuseau', `${esc(i.lang || '?')} · ${esc(i.tz || '?')}`],
+        ['Appli installée', i.pwa ? 'oui (écran d’accueil)' : 'non (navigateur)'],
+        ['Notifications', esc({ granted: 'acceptées', denied: 'refusées', default: 'pas encore demandées', absent: 'non disponibles' }[i.notif] || i.notif || '—')],
+        i.bat && ['Batterie', `${fmt(i.bat.level)} %${i.bat.charging ? ' · en charge' : ''} (à la connexion)`],
+        i.storage && ['Stockage du navigateur', `${bytes(i.storage.usage)} utilisés · ${bytes(i.storage.quota)} disponibles`],
+        ['Thème', i.dark ? 'sombre' : 'clair'],
+        ['Son · musique', `${i.sound ? 'oui' : 'non'} · ${i.music ? 'oui' : 'non'}`],
+      ])}</dl>
+      <details style="margin-top:8px"><summary class="muted" style="cursor:pointer;font-size:.85rem">Données brutes</summary><pre class="code" style="max-height:260px">${esc(JSON.stringify({ ...i, perf: x.perf }, null, 2))}</pre></details></div>`; }).join('')
+    || '<div class="sheet"><p class="empty">Aucun appareil enregistré pour l’instant : les fiches apparaissent à la prochaine connexion de chaque joueur (après la mise à jour 14.9).</p></div>';
+}
+
+/* =============== 🛡️ Sécurité =============== */
+const SEC = { d: null, at: 0, busy: false, f: 'imp' };
+const SEC_TYPES = {
+  login: ['✅', 'Connexion', false], admin_login: ['🔐', 'Connexion à ton compte d’organisateur', true], login_fail: ['❌', 'Mot de passe raté', true],
+  admin_fail: ['🚨', 'Mot de passe raté sur TON compte', true], login_lock: ['⛔', 'Trop d’essais : connexion bloquée', true], signup: ['🆕', 'Inscription', false],
+  signup_block: ['⛔', 'Inscriptions en rafale bloquées', true], ws_deny: ['🚫', 'Connexion en direct refusée', true], flood: ['🌊', 'Trop de requêtes : freiné', true],
+  admin: ['👑', 'Action sensible', true], new_device: ['📱', 'Nouvel appareil pour un joueur', false],
+  mail_code: ['✉️', 'Code d’inscription envoyé', false], reset_ask: ['🔑', 'Mot de passe oublié : code demandé', false], reset_done: ['🔑', 'Mot de passe changé par e-mail', true],
+  reset_fail: ['❌', 'Code de mot de passe raté', true], reset_block: ['⛔', 'Demandes de mot de passe en rafale bloquées', true], delete_me: ['🗑️', 'Compte supprimé par son joueur', true],
+};
+document.querySelectorAll('[data-sf]').forEach(b => b.onclick = () => { SEC.f = b.dataset.sf; document.querySelectorAll('[data-sf]').forEach(x => x.setAttribute('aria-pressed', x === b)); secRender(); });
+async function rSecurity() {
+  if (!SEC.busy && (!SEC.d || Date.now() - SEC.at > 20000)) {
+    SEC.busy = true;
+    try { SEC.d = await post('/api/admin/security'); SEC.at = Date.now(); }
+    catch (e) { $('secLead').textContent = '⚠️ ' + e.message + ' — installe d’abord la mise à jour 14.8 du jeu.'; SEC.busy = false; return; }
+    SEC.busy = false;
+  }
+  secRender();
+}
+const flag = c => c && /^[A-Z]{2}$/.test(c) ? String.fromCodePoint(...[...c].map(x => 0x1F1A5 + x.charCodeAt(0))) + ' ' + c : (c || '');
+function hourly(H, keys) {         // relevés à la minute → totaux par heure
+  const m = new Map();
+  for (const h of H) { const k = Math.floor(h.t / 3600e3) * 3600e3, o = m.get(k) || {}; for (const key of keys) o[key] = (o[key] || 0) + (h[key] || 0); m.set(k, o); }
+  return [...m].sort((a, b) => a[0] - b[0]);
+}
+function secRender() {
+  const d = SEC.d; if (!d || !M) return;
+  const H = M.day || [], c24 = d.counts24 || {}, s24 = k => H.reduce((a, h) => a + (h[k] || 0), 0);
+  const lastAdm = (d.adminLogins || []).find(e => e.type === 'admin_login');
+  const admFails = c24.admin_fail || 0, fails = (c24.login_fail || 0) + admFails;
+  $('secTiles').innerHTML = [
+    tile('Connexions réussies', fmt(s24('lo')), '24 dernières heures', '--sage'),
+    tile('Mots de passe ratés', fmt(s24('lf')), `${fmt(c24.login_lock || 0)} blocage${(c24.login_lock || 0) > 1 ? 's' : ''} après trop d’essais`, s24('lf') > 20 ? '--clay' : '--mustard'),
+    tile('Sur TON compte', admFails ? `🚨 ${fmt(admFails)}` : '✅ 0', admFails ? 'mots de passe ratés en 24 h : vérifie ci-dessous' : 'aucun essai raté en 24 h', admFails ? '--clay' : '--sage'),
+    tile('Dernière connexion 👑', lastAdm ? ago(lastAdm.at) : '—', lastAdm ? [lastAdm.dev, flag(lastAdm.c)].filter(Boolean).join(' · ') : 'aucune depuis la 14.8', '--indigo'),
+    tile('Inscriptions', fmt(c24.signup || 0), `${fmt(c24.signup_block || 0)} rafale${(c24.signup_block || 0) > 1 ? 's' : ''} bloquée${(c24.signup_block || 0) > 1 ? 's' : ''} · 24 h`, '--sky'),
+    tile('Connexions refusées', fmt(s24('wd')), 'jeton inconnu ou joueur exclu · 24 h', s24('wd') ? '--mustard' : '--sage'),
+    tile('Requêtes freinées', fmt(s24('rl')), 'trop rapides (code 429) · 24 h', s24('rl') ? '--mustard' : '--sage'),
+    tile('Coups refusés', fmt(s24('rej')), 'plus de 20 par seconde (anti-triche) · 24 h', s24('rej') > 100 ? '--clay' : '--sage'),
+    tile('Pages inconnues', fmt(s24('nf')), 'demandes sans réponse (404) · 24 h', '--grey'),
+    tile('Appareils connectés', fmt(d.sessions?.active), `${fmt(d.sessions?.n)} connexions gardées · ${fmt(d.adminSessions)} sur ton compte`, '--plum'),
+  ].join('');
+  const hl = hourly(H, ['lo', 'lf', 'll', 's4', 's5', 'nf', 'rl', 'wd', 'rej']), lab = hl.map(([t]) => new Date(t).getHours() + ' h');
+  chart('cSecLogin', 'bar', lab, [{ label: 'Réussies', data: hl.map(x => x[1].lo), color: '--sage' }, { label: 'Mot de passe raté', data: hl.map(x => x[1].lf), color: '--clay' }, { label: 'Bloquées', data: hl.map(x => x[1].ll), color: '--mustard' }], { stacked: true, xticks: 8 });
+  chart('cSecHttp', 'bar', lab, [{ label: 'Refus et erreurs (4xx)', data: hl.map(x => x[1].s4 - x[1].nf), color: '--mustard' }, { label: 'Pages inconnues (404)', data: hl.map(x => x[1].nf), color: '--grey' }, { label: 'Panne du serveur (5xx)', data: hl.map(x => x[1].s5), color: '--clay' }], { stacked: true, xticks: 8 });
+  chart('cSecDeny', 'line', lab, [{ label: 'Requêtes freinées', data: hl.map(x => x[1].rl), color: '--mustard' }, { label: 'Connexions refusées', data: hl.map(x => x[1].wd), color: '--clay' }, { label: 'Coups refusés', data: hl.map(x => x[1].rej), color: '--indigo', yAxisID: 'y2' }], { xticks: 8, y2: true });
+  const W = new Map(); for (const w of M.week || []) { const k = parisDay(w.t), o = W.get(k) || { lo: 0, lf: 0, s4: 0, s5: 0 }; for (const key in o) o[key] += w[key] || 0; W.set(k, o); }
+  const wl = [...W].sort((a, b) => a[0] < b[0] ? -1 : 1);
+  chart('cSecWeek', 'bar', wl.map(x => dayLbl(x[0])), [{ label: 'Connexions', data: wl.map(x => x[1].lo), color: '--sage' }, { label: 'Mots de passe ratés', data: wl.map(x => x[1].lf), color: '--clay' },
+    { label: 'Erreurs 4xx', data: wl.map(x => x[1].s4), color: '--mustard' }, { label: 'Pannes 5xx', data: wl.map(x => x[1].s5), color: '--plum' }]);
+  $('secAdmin').innerHTML = li((d.adminLogins || []).slice(0, 10).map(e => [`${e.type === 'admin_fail' ? '🚨 essai raté' : '🔐 connexion'} · ${esc([e.dev !== '?' && e.dev, flag(e.c), e.ip].filter(Boolean).join(' · '))}`, ago(e.at)]))
+    + `<li><span class="muted" style="font-size:.82rem">Chaque nouvelle connexion à ton compte t’envoie aussi une notification sur ton téléphone.</span><span></span></li>`;
+  $('secIps').innerHTML = li((d.failIps || []).map(x => [`<span class="mono">${esc(x.ip)}</span> ${esc(flag(x.c))}`, `${fmt(x.n)} échec${x.n > 1 ? 's' : ''}`]));
+  $('secNfTxt').textContent = d.notFoundSince ? `depuis ${ago(d.notFoundSince).replace('il y a ', '')}` : '';
+  $('secNf').innerHTML = li((d.notFound || []).map(([p, n]) => [`<span class="mono" style="overflow-wrap:anywhere">${esc(p)}</span>`, `${fmt(n)}×`]));
+  const E = (d.events || []).filter(e => SEC.f === 'all' || (SEC.f === 'login' ? /login|signup/.test(e.type) : (SEC_TYPES[e.type] || [])[2]));
+  $('secLogTxt').textContent = `${fmt((d.events || []).length)} événements gardés`;
+  $('secLog').innerHTML = E.length ? E.slice(0, 120).map(e => { const t = SEC_TYPES[e.type] || ['•', e.type];
+    const extra = [e.who, e.mail, e.what, e.why, e.known === false ? 'compte inexistant' : null].filter(Boolean).map(esc).join(' · ');
+    return `<li><span>${t[0]} <b>${esc(t[1])}</b>${extra ? ' · ' + extra : ''} <span class="muted">${esc([e.dev !== '?' && e.dev, flag(e.c), e.ip].filter(Boolean).join(' · '))}</span></span><span>${dateTime(e.at)}</span></li>`; }).join('')
+    : '<li class="empty">Rien à signaler 🎉</li>';
+}
+
+/* =============== 🗄️ Base de données (lecture seule) =============== */
+const DB = { schema: null, at: 0, loading: false, sel: null, view: 'rows', q: '', order: null, dir: null, offset: 0, limit: 50, filter: '', fcol: '', rows: null, fnq: '' };
+const CONTYPE = { p: '🔑 Clé primaire', f: '🔗 Lien vers une autre table', u: '☝️ Valeur unique', c: '✔️ Règle de contrôle', x: '⛔ Exclusion' };
+async function rBase(force) {
+  if (DB.loading) return;
+  if (!DB.schema || force || Date.now() - DB.at > 120000) {
+    DB.loading = true;
+    try { DB.schema = await post('/api/admin/db-schema'); DB.at = Date.now(); } catch (e) { $('dbPane').innerHTML = `<p class="empty">⚠️ ${esc(e.message)}</p>`; DB.loading = false; return; }
+    DB.loading = false;
+    dbTiles(); dbList(); fnList();
+    if (!DB.sel) { const pick = DB.schema.tables.find(t => t.name === 'profiles') || DB.schema.tables[0]; if (pick) dbSelect(pick.sch + '.' + pick.name); }
+  }
+}
+function dbTiles() {
+  const S = DB.schema, T = S.tables, rows = T.reduce((a, t) => a + (+t.rows || 0), 0), big = T.slice().sort((a, b) => b.size - a.size)[0];
+  $('dbTiles').innerHTML = [
+    tile('Moteur PostgreSQL', esc((S.info.v.match(/PostgreSQL ([\d.]+)/) || [])[1] || '?'), `PGlite ${esc(S.info.pglite)} · ${esc(S.info.enc)} · ${esc(S.info.tz)}`, '--indigo'),
+    tile('Taille totale', bytes(S.info.size), `la plus grosse : ${esc(big?.name || '')} (${bytes(big?.size)})`, '--mustard'),
+    tile('Tables', fmt(T.length), `${fmt(T.reduce((a, t) => a + t.columns.length, 0))} colonnes · ${fmt(T.reduce((a, t) => a + t.indexes.length, 0))} index`, '--sage'),
+    tile('Lignes', fmt(rows), 'toutes tables confondues', '--accent'),
+    tile('Fonctions', fmt(S.functions.length), `${fmt(S.functions.filter(f => f.internal).length)} internes · lu en ${fmt(S.ms)} ms`, '--plum'),
+  ].join('');
+  $('dbTCount').textContent = `${T.length}`;
+}
+$('dbSearch').oninput = e => { DB.q = e.target.value.trim().toLowerCase(); dbList(); };
+function dbList() {
+  const T = DB.schema.tables.filter(t => !DB.q || (t.sch + '.' + t.name).includes(DB.q));
+  let h = '', last = '';
+  for (const t of T) {
+    if (t.sch !== last) { last = t.sch; h += `<div class="sch">${t.sch === 'auth' ? 'auth · comptes et connexions' : 'public · le jeu'}</div>`; }
+    const id = t.sch + '.' + t.name;
+    h += `<button type="button" data-t="${esc(id)}" aria-pressed="${DB.sel === id}"><span>${esc(t.name)}</span><small>${t.exact ? '' : '≈ '}${fmt(t.rows)} · ${bytes(t.size)}</small></button>`;
+  }
+  $('dbList').innerHTML = h || '<p class="empty">Aucune table.</p>';
+  $('dbList').querySelectorAll('[data-t]').forEach(b => b.onclick = () => { dbSelect(b.dataset.t); if (innerWidth < 900) $('dbPane').scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+}
+function dbTable() { return DB.schema.tables.find(t => t.sch + '.' + t.name === DB.sel); }
+function dbSelect(id) {
+  DB.sel = id; DB.order = null; DB.dir = null; DB.offset = 0; DB.filter = ''; DB.fcol = ''; DB.rows = null;
+  dbList(); dbPane(); if (DB.view === 'rows') dbLoad();
+}
+async function dbLoad() {
+  const box = $('dbGrid'); if (box) box.innerHTML = '<p class="empty">Chargement…</p>';
+  try { DB.rows = await post('/api/admin/db-rows', { table: DB.sel, order: DB.order, dir: DB.dir, offset: DB.offset, limit: DB.limit, filter: DB.filter, fcol: DB.fcol }); }
+  catch (e) { if ($('dbGrid')) $('dbGrid').innerHTML = `<p class="empty">⚠️ ${esc(e.message)}</p>`; return; }
+  dbGrid();
+}
+function dbPane() {
+  const t = dbTable(); if (!t) return;
+  const pk = t.constraints.find(c => c.type === 'p');
+  $('dbPane').innerHTML = `<h3 style="margin-bottom:4px"><span class="mono" style="font-size:1rem">${esc(t.sch)}.<b>${esc(t.name)}</b></span>
+      <button class="btn ghost small" id="dbRef" type="button">↻ Actualiser</button></h3>
+    ${t.comment ? `<p class="muted" style="margin:0 0 6px">${esc(t.comment)}</p>` : ''}
+    <p class="muted" style="margin:0 0 10px;font-size:.86rem">${t.exact ? '' : '≈ '}${fmt(t.rows)} lignes · données ${bytes(t.data)} · index ${bytes(t.idx)} · ${t.columns.length} colonnes${pk ? ` · clé : ${esc(pk.cols.join(', '))}` : ''}${t.rls ? ' · 🛡️ protégée (RLS)' : ''}</p>
+    <div class="seg"><button type="button" data-v="rows" aria-pressed="${DB.view === 'rows'}">Contenu</button><button type="button" data-v="struct" aria-pressed="${DB.view === 'struct'}">Structure</button></div>
+    <div id="dbBody"></div>`;
+  $('dbPane').querySelectorAll('[data-v]').forEach(b => b.onclick = () => { DB.view = b.dataset.v; dbPane(); if (DB.view === 'rows') { if (DB.rows?.table === DB.sel) dbGrid(); else dbLoad(); } });
+  $('dbRef').onclick = async () => { await rBase(true); dbPane(); if (DB.view === 'rows') dbLoad(); };
+  if (DB.view === 'struct') return dbStruct(t);
+  $('dbBody').innerHTML = `<div class="frow"><select id="dbFcol"><option value="">Toutes les colonnes</option>${t.columns.filter(c => !c.secret).map(c => `<option value="${esc(c.name)}" ${DB.fcol === c.name ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>
+      <input id="dbFilter" type="search" placeholder="Contient…" value="${esc(DB.filter)}"></div><div id="dbGrid"></div>`;
+  let tm = 0;
+  $('dbFilter').oninput = e => { clearTimeout(tm); tm = setTimeout(() => { DB.filter = e.target.value; DB.offset = 0; dbLoad(); }, 400); };
+  $('dbFcol').onchange = e => { DB.fcol = e.target.value; DB.offset = 0; if (DB.filter) dbLoad(); };
+  if (DB.rows?.table === DB.sel) dbGrid();
+}
+function dbGrid() {
+  const R = DB.rows, box = $('dbGrid'); if (!box || !R || R.table !== DB.sel) return;
+  const head = R.columns.map(c => `<th${R.order === c.name ? ` aria-sort="${R.dir === 'asc' ? 'ascending' : 'descending'}"` : ''}><button type="button" data-o="${esc(c.name)}" title="${esc(c.type)}">${esc(c.name)}${R.order === c.name ? (R.dir === 'asc' ? ' ↑' : ' ↓') : ''}</button></th>`).join('');
+  const body = R.rows.map((r, k) => '<tr>' + R.columns.map(c => { const v = r[c.name];
+    return c.secret ? '<td class="sec">•••• masqué</td>' : v == null ? `<td class="nul" data-r="${k}" data-c="${esc(c.name)}">null</td>` : `<td data-r="${k}" data-c="${esc(c.name)}" title="${esc(String(v).slice(0, 300))}">${esc(String(v).slice(0, 80))}</td>`; }).join('') + '</tr>').join('');
+  const end = R.offset + R.rows.length;
+  box.innerHTML = `<div class="tw"><table class="grid"><tr>${head}</tr>${body || `<tr><td class="empty" colspan="${R.columns.length}">Aucune ligne${DB.filter ? ' ne correspond' : ''}.</td></tr>`}</table></div>
+    <div id="dbCell"></div>
+    <div class="pager"><span>${R.rows.length ? `lignes ${fmt(R.offset + 1)} à ${fmt(end)} sur ${R.exact ? '' : '≈ '}${fmt(R.total)}` : ''} · ${fmt(R.ms)} ms</span>
+      <span><button class="btn ghost small" id="dbPrev" type="button" ${R.offset ? '' : 'disabled'}>‹ Précédentes</button>
+      <button class="btn ghost small" id="dbNext" type="button" ${end < R.total && R.rows.length === R.limit ? '' : 'disabled'}>Suivantes ›</button></span></div>`;
+  box.querySelectorAll('[data-o]').forEach(b => b.onclick = () => { const o = b.dataset.o; DB.dir = R.order === o && R.dir === 'asc' ? 'desc' : 'asc'; DB.order = o; DB.offset = 0; dbLoad(); });
+  box.querySelectorAll('td[data-r]').forEach(td => td.onclick = () => { const v = R.rows[+td.dataset.r][td.dataset.c];
+    let txt = v; try { if (v && /^[\[{]/.test(v)) txt = JSON.stringify(JSON.parse(v), null, 2); } catch (e) {}
+    $('dbCell').innerHTML = `<div class="sheet" style="margin-top:10px;background:var(--paper)"><b class="mono">${esc(td.dataset.c)}</b> <button class="btn ghost small" type="button" id="dbCellX" style="float:right">✕</button><pre class="cellv mono">${esc(txt ?? 'null')}</pre></div>`;
+    $('dbCellX').onclick = () => { $('dbCell').innerHTML = ''; }; });
+  $('dbPrev').onclick = () => { DB.offset = Math.max(0, DB.offset - DB.limit); dbLoad(); };
+  $('dbNext').onclick = () => { DB.offset += DB.limit; dbLoad(); };
+}
+function dbStruct(t) {
+  const pk = new Set(t.constraints.find(c => c.type === 'p')?.cols || []);
+  const fk = new Map(); for (const c of t.constraints.filter(c => c.type === 'f')) for (const col of c.cols || []) fk.set(col, c.ref);
+  const uniq = new Set(t.constraints.filter(c => c.type === 'u').flatMap(c => c.cols || []));
+  const refs = DB.schema.tables.flatMap(o => o.constraints.filter(c => c.type === 'f' && c.ref === t.sch + '.' + t.name).map(c => `${o.sch}.${o.name} (${(c.cols || []).join(', ')})`));
+  const cons = t.constraints.filter(c => c.type !== 'n');
+  $('dbBody').innerHTML = `<div class="tw"><table><tr><th class="l">Colonne</th><th class="l">Type</th><th class="l">Vide permis</th><th class="l">Valeur par défaut</th><th class="l">Rôle</th></tr>
+    ${t.columns.map(c => `<tr><td class="l mono"><b>${esc(c.name)}</b>${c.comment ? `<div class="muted" style="font-family:var(--font);white-space:normal">${esc(c.comment)}</div>` : ''}</td><td class="l mono">${esc(c.type)}</td>
+      <td class="l">${c.nn ? 'non' : '<span class="muted">oui</span>'}</td><td class="l mono" style="white-space:normal;max-width:260px">${esc(c.def || '')}</td>
+      <td class="l">${[pk.has(c.name) && '🔑 clé', fk.has(c.name) && `🔗 → ${esc(fk.get(c.name))}`, uniq.has(c.name) && '☝️ unique', c.secret && '🔒 secret (jamais affiché)'].filter(Boolean).join('<br>')}</td></tr>`).join('')}</table></div>
+    <h3 style="margin-top:18px">Index <small>${t.indexes.length} · pour retrouver vite les lignes</small></h3>
+    <ul class="list">${t.indexes.map(i => `<li><span class="mono" style="white-space:normal;overflow-wrap:anywhere">${i.pk ? '🔑 ' : i.uniq ? '☝️ ' : ''}${esc(i.def)}</span><span>${bytes(i.size)}</span></li>`).join('') || '<li class="empty">Aucun index.</li>'}</ul>
+    <h3 style="margin-top:18px">Règles et liens</h3>
+    <ul class="list">${cons.map(c => `<li class="cons"><span><b>${esc(CONTYPE[c.type] || c.type)}</b><br><span class="mono" style="overflow-wrap:anywhere">${esc(c.def)}</span></span><span class="mono">${esc(c.name)}</span></li>`).join('') || '<li class="empty">Aucune.</li>'}</ul>
+    ${refs.length ? `<h3 style="margin-top:18px">Tables qui pointent vers celle-ci <small>${refs.length}</small></h3><ul class="list">${refs.map(r => `<li><span class="mono">${esc(r)}</span><span></span></li>`).join('')}</ul>` : ''}
+    ${t.triggers.length ? `<h3 style="margin-top:18px">Déclencheurs <small>actions automatiques</small></h3><ul class="list">${t.triggers.map(g => `<li><span class="mono" style="white-space:normal;overflow-wrap:anywhere">${esc(g.def)}</span><span></span></li>`).join('')}</ul>` : ''}`;
+}
+$('fnSearch').oninput = e => { DB.fnq = e.target.value.trim().toLowerCase(); fnList(); };
+function fnList() {
+  const F = DB.schema.functions.filter(f => !DB.fnq || f.name.includes(DB.fnq));
+  $('fnCount').textContent = `${DB.schema.functions.length}`;
+  $('tFn').innerHTML = '<tr><th class="l">Fonction</th><th class="l">Renvoie</th><th class="l">Langage</th><th>Code</th></tr>' +
+    F.map(f => `<tr style="cursor:pointer" data-f="${f.oid}"><td class="l mono" style="white-space:normal"><b>${esc(f.name)}</b>(<span class="muted">${esc(f.args)}</span>)
+      ${f.internal ? '<span class="chip none">interne</span>' : ''}${f.secdef ? ' <span class="chip">droits du jeu</span>' : ''}</td><td class="l mono" style="white-space:normal;min-width:90px">${esc(f.result)}</td><td class="l">${esc(f.lang)}</td><td>${fmt(f.len)} car.</td></tr>`).join('');
+  $('tFn').querySelectorAll('[data-f]').forEach(tr => tr.onclick = async () => {
+    $('fnCode').innerHTML = '<p class="empty">Chargement…</p>';
+    try { const d = await post('/api/admin/db-function', { oid: +tr.dataset.f });
+      $('fnCode').innerHTML = `<h3 style="margin-top:14px"><span class="mono">${esc(d.name)}</span><button class="btn ghost small" type="button" id="fnX">✕ Fermer</button></h3><pre class="code">${esc(d.def)}</pre>`;
+      $('fnX').onclick = () => { $('fnCode').innerHTML = ''; };
+      $('fnCode').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (e) { $('fnCode').innerHTML = `<p class="empty">⚠️ ${esc(e.message)}</p>`; }
+  });
+}
+
+applyTheme();
+start();
+</script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "name": "le-cube-serveur",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Serveur maison du jeu Le Cube",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "0.5.10",
+    "web-push": "3.6.7",
+    "ws": "^8.18.0"
+  }
+}

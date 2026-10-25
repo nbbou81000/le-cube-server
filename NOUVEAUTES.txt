@@ -1,0 +1,51 @@
+Version 15.3 : texte d’aide de la limite de joueurs connectés mis à jour (file d’attente).
+
+Version 15.2 : bouton ℹ️ « À propos » (créateur du jeu, contact, liens), sur l’écran de connexion et dans ⚙️.
+
+Version 15.1 : correction du bouton « Lancer le pilote » (👑 › 🧭), qui ne réagissait pas quand la répartition automatique des artefacts était affichée.
+
+Version 15.0 : 🚪 file d’attente quand le serveur est complet (place dans la file et attente estimée, entrée automatique, les joueurs inactifs laissent leur place), ✉️ code par e-mail à l’inscription et « Mot de passe oublié ? » (si l’organisateur les active), page 🔒 Confidentialité, suppression de son propre compte dans ⚙️, et possibilité de faire tourner un 2ᵉ serveur sur le même PC.
+
+Version 14.9 : 📱 fiche technique de chaque appareil qui se connecte (modèle, système, écran, puissance, fluidité, réseau, lieu…), pour l’onglet « Appareils » du tableau de bord.
+
+Version 14.8 : 🛡️ journal de sécurité (connexions, essais ratés, refus, erreurs, actions sensibles) pour l’onglet « Sécurité » du tableau de bord, et notification à chaque nouvelle connexion au compte de l’organisateur.
+
+Version 14.7 : 🧭 le pilote automatique compte aussi le sac de l’organisateur, comme celui d’un joueur.
+
+Version 14.6 : 🧭 le pilote automatique se met aussi en marche quand l’organisateur joue seul.
+
+Version 14.5 : 🧭 le pilote automatique garde l’historique de ses décisions, affiché dans le nouvel onglet « Pilote » du tableau de bord.
+
+Version 14.4 : 🧭 pilote automatique de l’organisateur : il garde la partie au bon rythme (artefacts, coffres, or, matériaux et leur profondeur, et en option prix et atelier), seulement quand des joueurs sont connectés.
+
+Version 14.3 : 🗄️ onglet « Base » dans le tableau de bord : toutes les tables, leur structure, leur contenu et le code des fonctions du jeu, en lecture seule.
+
+Version 14.2 : 📈 tableau de bord de l’organisateur (page à part, envoyée depuis 👑 › Serveur, données en lecture seule) et journal des sessions de jeu.
+
+Version 14.1 : la vue se déplace ! Glisser à deux doigts (ou clic droit sur ordinateur) pour se placer où on veut, le zoom va vers l’endroit pincé, et le bouton 🎯 recentre le cube.
+
+Version 14.0 : 👑 la liste des comptes des joueurs s’ouvre dans sa propre fenêtre (recherche, filtres validés / en ligne / refusés, dernière visite), les comptes refusés peuvent être supprimés pour de bon, et l’organisateur est prévenu des nouvelles inscriptions et des premières connexions.
+
+Version 13.7 : chacun peut choisir ses bruitages dans ⚙️ › Son : ceux d’origine du jeu, ou le pack de l’organisateur (bruits façon Minecraft pour toutes les matières du cube).
+
+Version 13.0 : les robots-mineurs 🤖 arrivent dans la boutique ! Un robot casse des blocs pour toi (collaborateur, ou hors ligne pendant tes absences) et ce qu’il trouve va dans ton sac. Un seul robot au travail à la fois.
+
+Version 12.4 : nouveau panneau « Mon style » (⚙️ › 🎨 Personnaliser) : avatar, couleur, effets et insignes rangés en onglets, avec l’aperçu toujours visible.
+
+Version 12.3 : chaque joueur peut choisir sa musique dans ⚙️ › Son (la playlist de l’organisateur ou la musique d’origine du jeu), et de nouveaux événements surprises.
+
+Version 12.0 : coffre du jour et série de jours 🔥, heure dorée surprise, saisons avec paliers et médailles, classement toutes saisons avec récompenses, duels entre joueurs ⚔️, effets et insignes de pseudo à débloquer, combos qui rapportent jusqu’à ×5, prix de la boutique calculés automatiquement.
+
+Version 11.0 : nouveaux bruits de casse selon la matière (pierre, bois, verre, cristal…), notifications sur téléphone réparées, et alertes de connexion pour l’organisateur.
+
+Version 10.9 : la radio accepte les morceaux M4A en plus des MP3 ; liste des morceaux plus pratique (recherche, liste compacte).
+
+Version 10.8 : la radio accepte maintenant les morceaux M4A en plus des MP3.
+
+Version 10.7 : petites améliorations de l’administration du jeu.
+
+Version 10.6 : annonces envoyées sur les téléphones, et les joueurs sont prévenus à chaque mise à jour du jeu.
+
+Version 10.5 : réponses aux messages du salon (comme sur Discord), panneau de 300 smileys, 18 réactions.
+
+Version 10.4 : mise à jour du jeu depuis le téléphone (👑 › Serveur), photo qui passe sur la couche suivante.
