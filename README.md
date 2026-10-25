@@ -162,7 +162,7 @@ Everything is in **👑** (bottom bar). Important buttons ask for confirmation t
 2. **Forgotten password** (without e-mail set up): open the account list and use 🔑 to set a new password for the player.
 3. **Game rules**: hits per block, how often gold and materials appear, shop prices, workshop recipes, events, traps, robots… Starting a **new cube** lets you pick its size (10 to 256).
 4. **Autopilot 🧭**: give a target number of days to finish the cube; it gently adjusts hidden artifacts, chests, gold and materials (and optionally prices and recipes) every 10 minutes, only while players are online.
-5. **Server**: health and charts, backups, rescue copy, updates, tunnel, load test (🧪 "How many players can your server handle?").
+5. **Server**: health and charts, backups, rescue copy, updates, tunnel, load test (🧪 "How many players can your server handle?"), **🔄 Restart** and **⏻ Shut down**. Shutting down from your phone disconnects players with a message and does **not** restart automatically (the console window stays open saying it is off); to turn it back on, close the window, wait a minute and run `2-DEMARRER.bat` again (or reboot the PC if autostart is on).
 6. **⚙️ Settings › 🔔 Notifications** on your own phone: get alerted about new sign-ups, first connections, and logins to your organizer account.
 
 ## 7. Opening it to strangers (public server)

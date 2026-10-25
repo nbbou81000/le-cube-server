@@ -42,7 +42,7 @@ const VAPID_FILE = path.join(STATE, 'notifications-cles.json');         // clés
 const REPLAY_DIR = path.join(STATE, 'rejeux');
 const PHOTO_FILE = path.join(STATE, 'photo-du-cube.jpg');                // 🖼️ photo du thème « Ma photo »                          // 🎬 films des cubes (les 6 derniers)
 const KEEP_BACKUPS = 10;
-const GAME_VERSION = '15.5';
+const GAME_VERSION = '15.6';
 const UPDATE_NOTE = 'Nouveaux bruitages au choix dans ⚙️ › Son : sons d’origine du jeu ou pack de l’organisateur.';
 const PREV_DIR = path.join(STATE, 'version-precedente');                // 📦 copie de la version d'avant une mise à jour
 const UPDATE_FLAG = path.join(STATE, 'mise-a-jour-en-cours.json');
@@ -77,6 +77,19 @@ alter table storage.objects enable row level security;
 create table if not exists realtime.messages (id serial primary key, topic text);
 alter table realtime.messages enable row level security;`;
 
+// ⏻ éteint depuis le téléphone de l'organisateur : la fenêtre 2-DEMARRER relance le programme 10 s plus tard,
+//    alors on reste éteint (sans rien charger, sans tunnel) au lieu de redémarrer le jeu.
+const OFF_FLAG = path.join(STATE, 'arret-demande.json');
+try {
+  const off = JSON.parse(fs.readFileSync(OFF_FLAG, 'utf8'));
+  if (Date.now() - (+off.at || 0) < 60e3) {
+    log('⏻ Serveur ÉTEINT depuis le téléphone de l’organisateur. Il ne redémarrera pas tout seul.');
+    log('   Pour le rallumer : ferme cette fenêtre, attends une minute, puis relance 2-DEMARRER.bat (ou redémarre le PC).');
+    setInterval(() => {}, 1 << 30);
+    await new Promise(() => {});
+  }
+} catch (e) {}
+try { fs.rmSync(OFF_FLAG, { force: true }); } catch (e) {}
 log('Démarrage du moteur de jeu…');
 // Restauration : si le dossier « donnees » n'existe pas et qu'un fichier restaurer.tar.gz est présent
 let db;
@@ -1852,6 +1865,16 @@ const server = http.createServer(async (req, res) => {
         log('↩️  Retour à la version d’avant demandé depuis 👑');
         send(res, 200, { ok: true });
         restartSoon('🔄 Retour à la version précédente du jeu : il revient dans quelques secondes…', 'update');
+        return;
+      }
+      if (action === 'shutdown') {                    // ⏻ éteindre pour de bon (pas de relance automatique)
+        fs.writeFileSync(OFF_FLAG, JSON.stringify({ at: Date.now() }));
+        send(res, 200, { ok: true });
+        log('⏻ Extinction demandée par l’organisateur');
+        const msg = JSON.stringify({ type: '__shutdown' });
+        for (const ws of clients.keys()) if (ws.readyState === 1) ws.send(msg);
+        for (const q of waitQueue) { try { q.ws.send(msg); } catch (e) {} }
+        setTimeout(() => { try { fs.writeFileSync(OFF_FLAG, JSON.stringify({ at: Date.now() })); } catch (e) {} stop(); }, 1500);
         return;
       }
       if (action === 'restart') {

@@ -537,6 +537,12 @@
   <p class="muted" style="margin:0" data-en="Keep this page open: it will reconnect by itself.">Garde cette page ouverte : elle se reconnectera toute seule.</p>
   <div class="btns" style="justify-content:center"><button id="overRetry" data-en="Try again now">Réessayer maintenant</button></div>
 </div></div>
+<div id="offBox" class="modal" style="z-index:30"><div class="card" style="text-align:center;width:min(380px,100%)">
+  <p style="font-size:36px;margin:6px 0">⏻</p>
+  <div style="font-size:19px;font-weight:800;margin-bottom:8px" data-en="The server has been shut down">Le serveur est éteint</div>
+  <p data-en="The organizer has turned the game off for now. Your progress is saved: come back later!">L’organisateur a éteint le jeu pour le moment. Ta progression est bien enregistrée : reviens plus tard !</p>
+  <div class="btns" style="justify-content:center"><button id="offRetry" data-en="Try again">Réessayer</button></div>
+</div></div>
 <div id="idleBox" class="modal"><div class="card" style="text-align:center;width:min(380px,100%)">
   <p style="font-size:34px;margin:6px 0">💤</p>
   <div style="font-size:18px;font-weight:800;margin-bottom:6px" data-en="Spot given to a waiting player">Place laissée à un joueur qui attendait</div>
@@ -6823,11 +6829,11 @@ async function renderAdminServer() {
     ${st.tunnel.mode === 'partagé' ? `<label>🌍 ${L('Adresse sur Internet', 'Internet address')}</label>
     <p class="muted" style="margin:0 0 6px">${L('Ce serveur est un 2ᵉ serveur sur le même PC : il passe par le tunnel du premier (réglé dans Cloudflare, « Public hostname »). Rien à régler ici.',
       'This server is a 2nd server on the same PC: it goes through the first one’s tunnel (set in Cloudflare, “Public hostname”). Nothing to set here.')}</p>
-    <div class="btns"><button id="svRestart" class="small">${L('🔄 Redémarrer le serveur', '🔄 Restart the server')}</button></div>` : `<label>${L('Adresse permanente (jeton de tunnel Cloudflare)', 'Permanent address (Cloudflare tunnel token)')}</label>
+    <div class="btns"><button id="svRestart" class="small">${L('🔄 Redémarrer le serveur', '🔄 Restart the server')}</button><button id="svOff" class="danger small">${L('⏻ Éteindre le serveur', '⏻ Shut down the server')}</button></div>` : `<label>${L('Adresse permanente (jeton de tunnel Cloudflare)', 'Permanent address (Cloudflare tunnel token)')}</label>
     <div class="row"><input id="svToken" placeholder="${st.tunnel.mode === 'permanent' ? L('Un jeton est enregistré : colle-en un autre pour le remplacer', 'A token is saved: paste another one to replace it') : L('Colle ici la commande copiée depuis Cloudflare (eyJ…)', 'Paste the command copied from Cloudflare here (eyJ…)')}" autocomplete="off"></div>
     <div class="btns"><button id="svTokenSave" class="small primary">${L('Enregistrer et redémarrer', 'Save and restart')}</button>
       ${st.tunnel.mode === 'permanent' ? `<button id="svTokenDel" class="small">${L('Revenir à l’adresse gratuite', 'Back to the free address')}</button>` : ''}
-      <button id="svRestart" class="small">${L('🔄 Redémarrer le serveur', '🔄 Restart the server')}</button></div>`}
+      <button id="svRestart" class="small">${L('🔄 Redémarrer le serveur', '🔄 Restart the server')}</button><button id="svOff" class="danger small">${L('⏻ Éteindre le serveur', '⏻ Shut down the server')}</button></div>`}
     <label>${L('🧪 Combien de joueurs ton serveur peut-il encaisser ?', '🧪 How many players can your server handle?')}</label>
     <p class="muted" style="margin:0 0 6px">${L('Simule 20, 40, 60 puis 80 joueurs qui frappent sans arrêt (20 s chacun, environ 1 min 30). Les coups simulés sont calculés pour de vrai puis annulés : ta partie ne change pas. À lancer de préférence quand personne ne joue.',
       'Simulates 20, 40, 60 then 80 players hitting nonstop (20 s each, about 1 min 30). Simulated hits are really computed then cancelled: your game does not change. Best run when nobody is playing.')}</p>
@@ -6906,6 +6912,11 @@ async function renderAdminServer() {
     if (await act(() => net.loadTest([20, 40, 60, 80], 20))) setTimeout(showLoadTest, 500);
   };
   $('svLoadStop').onclick = async () => { await act(() => net.loadTestStop()); setTimeout(showLoadTest, 800); };
+  $('svOff').onclick = async () => {
+    if (!confirm(L('Éteindre le serveur pour de bon ? Les joueurs sont déconnectés et il ne redémarrera PAS tout seul : pour le rallumer, il faudra relancer 2-DEMARRER.bat sur le PC (ou redémarrer le PC si le démarrage automatique est activé).',
+      'Shut the server down for good? Players are disconnected and it will NOT restart by itself: to turn it back on, run 2-DEMARRER.bat on the PC again (or restart the PC if autostart is on).'))) return;
+    await act(() => net.shutdownServer());
+  };
   $('svRestart').onclick = async () => {
     if (!confirm(L('Redémarrer le serveur ? Les joueurs seront déconnectés quelques secondes.', 'Restart the server? Players will be disconnected for a few seconds.'))) return;
     if (await act(() => net.restartServer(), L('🔄 Le serveur redémarre…', '🔄 The server is restarting…'))) setTimeout(() => location.reload(), 15000);
@@ -7597,6 +7608,7 @@ async function createHome() {
     $('overBox').classList.add('open');
   }
   $('overRetry').onclick = () => location.reload();
+  $('offRetry').onclick = () => location.reload();
   // 📱 une fiche d'appareil par visite, envoyée une fois entré dans le jeu (pas pendant la file d'attente)
   function sendDevice() {
     connect.devSent = true;
@@ -7645,6 +7657,7 @@ async function createHome() {
       }
       else if (m.type === '__idle') { stopped = true; $('idleBox').classList.add('open'); }
       else if (m.type === '__overload') { stopped = true; showOverload(m.until); }
+      else if (m.type === '__shutdown') { stopped = true; ready = false; clearInterval(overTimer); $('full').classList.remove('open'); $('modal').classList.remove('open'); $('offBox').classList.add('open'); document.title = '⏻ Le Cube'; }
       else if (m.type === '__full') {
         full = m;
         $('queueBox').classList.add('hidden'); $('fullRetryTxt').classList.remove('hidden'); $('fullRetry').classList.remove('hidden');
@@ -7817,6 +7830,7 @@ async function createHome() {
     serverStatus: () => post('/api/admin/status'),
     backupNow: () => post('/api/admin/backup-now'),
     restartServer: () => post('/api/admin/restart'),
+    shutdownServer: () => post('/api/admin/shutdown'),
     setTunnelToken: t => post('/api/admin/tunnel-token', { token: t }),
     loadTest: (steps, seconds) => post('/api/admin/load-test', { steps, seconds }),
     loadTestStatus: () => post('/api/admin/load-test-status'),

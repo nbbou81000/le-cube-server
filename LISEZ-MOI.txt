@@ -46,6 +46,11 @@ complètement séparés (partie, comptes, réglages).
 Les réglages d'e-mails et de confidentialité sont dans 👑 › Serveur › ✉️
 (fichier reglages-publics.json, contient la clé Brevo : à ne pas partager).
 
+Éteindre à distance : 👑 › Serveur › « ⏻ Éteindre le serveur ». Les joueurs sont
+prévenus, et le serveur ne redémarre PAS tout seul (la fenêtre noire reste ouverte
+en indiquant qu'il est éteint). Pour le rallumer : ferme la fenêtre, attends une
+minute, relance 2-DEMARRER.bat (ou redémarre le PC si le démarrage auto est activé).
+
 Écran télé : sur une télé ou un vieil écran, ouvre l'adresse du jeu suivie
 de /?tv=1 et connecte-toi : le cube tourne tout seul avec le classement.
 

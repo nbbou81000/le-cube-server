@@ -1,3 +1,5 @@
+Version 15.6 : ⏻ l’organisateur peut éteindre le serveur depuis son téléphone (👑 › Serveur), sans redémarrage automatique.
+
 Version 15.5 : 🧅 l’Écorce du Monde est rééquilibrée : ce que cachait la couche arrachée (artefacts, coffres) s’enfonce dans les couches plus profondes au lieu d’aller d’un coup dans le sac, et elle se recharge 6 heures entre deux utilisations, pour tout le serveur.
 
 Version 15.4 : 🔥 protection anti-surchauffe : si le PC est à bout de souffle trop longtemps, le jeu se met en pause quelques minutes pour les joueurs (message d’excuse, reconnexion automatique) et l’organisateur est prévenu sur son téléphone.
