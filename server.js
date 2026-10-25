@@ -42,7 +42,7 @@ const VAPID_FILE = path.join(STATE, 'notifications-cles.json');         // clés
 const REPLAY_DIR = path.join(STATE, 'rejeux');
 const PHOTO_FILE = path.join(STATE, 'photo-du-cube.jpg');                // 🖼️ photo du thème « Ma photo »                          // 🎬 films des cubes (les 6 derniers)
 const KEEP_BACKUPS = 10;
-const GAME_VERSION = '15.7';
+const GAME_VERSION = '15.8';
 const UPDATE_NOTE = 'Nouveaux bruitages au choix dans ⚙️ › Son : sons d’origine du jeu ou pack de l’organisateur.';
 const PREV_DIR = path.join(STATE, 'version-precedente');                // 📦 copie de la version d'avant une mise à jour
 const UPDATE_FLAG = path.join(STATE, 'mise-a-jour-en-cours.json');
@@ -110,6 +110,8 @@ catch (e) {
   if (fs.existsSync(UPDATE_FLAG) && rollbackFiles()) { log('↩️  Mise à jour annulée : retour à la version d’avant, redémarrage…'); fs.rmSync(UPDATE_FLAG, { force: true }); process.exit(1); }
   throw e;
 }
+// ⚖️ serveur public (instance.json) : régulation des artefacts puissants « modérée » d'office, tant que l'organisateur n'a rien choisi
+if (INSTANCE_NAME) { try { await db.query(`update public.game set art_rules = art_rules || '{"level": "modere"}'::jsonb where id = 1 and not (art_rules ? 'level')`); } catch (e) {} }
 // démarrage réussi après une mise à jour : 30 s plus tard (le temps que les joueurs reviennent), on prévient tout le monde
 let updateDone = null;
 try { updateDone = JSON.parse(fs.readFileSync(UPDATE_FLAG, 'utf8')); } catch (e) {}
@@ -148,7 +150,7 @@ function stamp() {
 const RPC = new Set(['me', 'game_state', 'get_blocks', 'hit_blocks', 'use_artifact', 'get_inventory', 'give_item',
   'give_artifact', 'get_leaderboard', 'get_treasure', 'set_treasure', 'admin_players', 'admin_set_status',
   'admin_new_cube', 'admin_artifacts', 'admin_add_artifacts', 'admin_remove_artifacts', 'admin_set_inventory',
-  'admin_set_config', 'admin_set_price', 'shop_buy', 'craft', 'market_list', 'market_create', 'market_cancel',
+  'admin_set_config', 'admin_set_price', 'shop_buy', 'craft', 'art_rules_state', 'admin_set_art_rules', 'market_list', 'market_create', 'market_cancel',
   'market_accept', 'get_missions', 'deliver_mission', 'reroll_mission',
   'chat_send', 'chat_list', 'admin_chat_delete', 'admin_chat_clear', 'admin_db_size',
   'admin_set_status_many', 'admin_limits', 'admin_set_limits', 'admin_pending_count',
@@ -1678,7 +1680,7 @@ const server = http.createServer(async (req, res) => {
         if (body.op === 'start') {
           const days = Math.floor(+body.days);
           if (!(days >= 1 && days <= 3650)) return send(res, 400, { error: 'Durée entre 1 et 3 650 jours' });
-          await apStart(days, !!body.prices);
+          await apStart(days, !!body.prices, body.brake !== false);
         } else if (body.op === 'stop') await apStop(!!body.restore);
         else if (body.op === 'now') { if (!ap?.on) return send(res, 400, { error: 'Le pilote n’est pas lancé' }); await apStep(true); }
         else if (!ap) await apLoad();
@@ -2064,7 +2066,8 @@ async function afterRpc(fn, uid, args, data) {
     if (fn === 'admin_new_cube') {
       await replayOpen();
       if (ap?.on) {                                  // 🧭 nouveau cube : le pilote s'arrête (sa date de fin visait l'ancien cube)
-        ap.on = false; delete ap.base; ap.samples = []; ap.hist = []; ap.dig = {}; ap.layerSnap = null; ap.A = 1; ap.P = 1; ap.C = 1;
+        ap.on = false; ap.emerg = 0; delete ap.base; ap.samples = []; ap.hist = [];
+        await sql(`update public.game set art_rules = art_rules || '{"emerg": false}'::jsonb where id = 1`).catch(() => {}); ap.dig = {}; ap.layerSnap = null; ap.A = 1; ap.P = 1; ap.C = 1;
         apLog('⏹ Nouveau cube : pilote arrêté, relance-le avec la durée voulue pour ce cube', 'stop');
         await apSave().catch(() => {});
         await sql('update public.game set mat_shift = 0 where id = 1').catch(() => {});
@@ -3077,27 +3080,41 @@ async function apStep(force) {
   apBusy = true;
   try {
     const now = Date.now();
-    const g = (await sql(`select size, destroyed, gold_every, mat_every, mat_w, mat_shift, peeled, started_at from public.game where id = 1`)).rows[0];
+    const g = (await sql(`select size, destroyed, gold_every, mat_every, mat_w, mat_shift, peeled, started_at, max_hp from public.game where id = 1`)).rows[0];
     const T = g.size ** 3, D = +g.destroyed;
+    const stepMs = ap.emerg ? AP_STEP / 2 : AP_STEP;                  // 🚨 freinage d'urgence : un réglage toutes les 5 minutes
     // relevé du rythme (même sans joueur connecté : c'est une seule petite lecture)
     let dirty = false;
-    if (now - apLastSample >= AP_STEP - 5000 || !(ap.samples || []).length) {
+    if (now - apLastSample >= stepMs - 5000 || !(ap.samples || []).length) {
       apLastSample = now; dirty = true;
       ap.samples = [...(ap.samples || []), [now, D]].filter(s => now - s[0] <= 7 * 864e5).slice(-1100);
     }
     const players = new Set([...clients.values()].map(c => c.id));   // quelqu'un est connecté (l'organisateur compte aussi)
     if (!players.size && !force) { if (dirty || !ap.waiting) { ap.waiting = true; await apSave(); } return; }
     ap.waiting = false;
-    if (!force && now - (ap.last || 0) < AP_STEP - 5000) { if (dirty) await apSave(); return; }
+    if (!force && now - (ap.last || 0) < stepMs - 5000) { if (dirty) await apSave(); return; }
     ap.last = now; ap.steps = (ap.steps || 0) + 1;
     if (!grid.data && !grid.building) await gridBuild();     // pour savoir ce qui est encore enfoui (jamais retirer un objet visible)
     const P = apPace(D, T);
     ap.pace = { rate: Math.round(P.rate), need: Math.round(P.need), R: +P.R.toFixed(3), conf: +P.conf.toFixed(2), eta: isFinite(P.eta) ? +P.eta.toFixed(1) : null, daysLeft: +P.daysLeft.toFixed(1), at: now };
     const changes = [];
     let refresh = false;
+    // ---------- 0) 🚨 freinage d'urgence : la partie s'emballe sur la dernière heure ----------
+    const S1 = (ap.samples || []).filter(x => now - x[0] <= 75 * 60e3)[0];
+    const spanM = S1 ? (now - S1[0]) / 60e3 : 0;
+    const rateS = spanM >= (process.env.LECUBE_AP_FAST ? 0.1 : 15) ? Math.max(0, D - S1[1]) / (spanM / 1440) : 0;
+    const Rs = P.need > 0 ? rateS / P.need : 0;
+    ap.Rs = +Rs.toFixed(2);
+    const wasE = !!ap.emerg;
+    if (ap.brake === false) ap.emerg = 0;
+    else if (!wasE && Rs >= 3) { ap.emerg = now; changes.push(`🚨 freinage d’urgence : ${apDec(Rs, 1)} fois trop rapide sur la dernière heure`); }
+    else if (wasE && Rs < 1.5 && now - ap.emerg > 30 * 60e3) { ap.emerg = 0; changes.push('✅ fin du freinage d’urgence : le rythme s’est calmé'); }
+    const E = !!ap.emerg;
+    if (E !== wasE) await sql(`update public.game set art_rules = art_rules || jsonb_build_object('emerg', $1::boolean) where id = 1`, [E]);
+    if (E) P.Reff = Math.max(P.Reff, Rs);                                   // on réagit au rythme de la dernière heure, pas seulement des 48 h
     // ---------- 1) artefacts et coffres encore cachés ----------
-    const Atarget = apClamp(Math.pow(P.Reff, -0.6), 0.35, 2.5);
-    const A0 = ap.A || 1, A = +(A0 * apClamp(Atarget / A0, 0.87, 1.15)).toFixed(3);
+    const Atarget = apClamp(Math.pow(P.Reff, -0.6), E ? 0.15 : 0.35, 2.5);
+    const A0 = ap.A || 1, A = +(A0 * apClamp(Atarget / A0, E ? 0.7 : 0.87, 1.15)).toFixed(3);
     ap.A = A;
     const Ch = +apClamp(Math.sqrt(A), 0.6, 1.6).toFixed(3);
     ap.Ch = Ch;
@@ -3111,7 +3128,7 @@ async function apStep(force) {
       const base = +v.n || 0; if (base <= 0) continue;
       const mult = AP_LEGEND.includes(k) ? 1 : k === 'coffre' ? Ch : A;
       const want = Math.max(AP_LEGEND.includes(k) ? Math.min(1, base) : 0, Math.round(base * mult));
-      const have = hidden[k] || 0, tol = Math.max(1, Math.round(want * 0.1)), cap = Math.max(2, Math.round(Math.max(want, have) * 0.3));
+      const have = hidden[k] || 0, tol = Math.max(1, Math.round(want * 0.1)), cap = Math.max(2, Math.round(Math.max(want, have) * (E ? 0.5 : 0.3)));
       if (have < want - tol) {
         const n = Math.min(cap, want - have);
         const got = +(await sql('select public._place($1, $2, $3, $4, $5) n', [k, n, v.lo, v.hi, k === 'coffre' ? 'chest' : 'art'])).rows[0].n || 0;
@@ -3154,7 +3171,7 @@ async function apStep(force) {
     for (const [, v] of digList) tot += v;
     for (const [d, v] of digList) { acc += v; if (acc >= tot / 2) { dMed = d; break; } }
     ap.digT = dMed == null ? null : +(dMed / lm).toFixed(3);
-    if (force || now - (ap.ecoAt || 0) >= AP_ECO - 5000) {
+    if (force || E || now - (ap.ecoAt || 0) >= AP_ECO - 5000) {
       ap.ecoAt = now;
       const base = ap.base || {};
       const w = { ...(g.mat_w || {}) }; for (const m of AP_MATS) w[m] = +(w[m] ?? 1);
@@ -3176,21 +3193,22 @@ async function apStep(force) {
       ap.X = Object.fromEntries(Object.entries(X).map(([k, v]) => [k, +v.toFixed(2)]));
       // fréquence globale des matériaux : partie lente → un peu plus, partie rapide → un peu moins
       const xs = AP_MATS.map(m => X[m]), xm = apMedian(xs);
-      let me = +g.mat_every, fme = P.Reff > 1.25 ? 1.06 : P.Reff < 0.8 ? (xm > 3 ? 1 : 0.94) : xm < 0.5 ? 0.94 : xm > 3 ? 1.06 : 1;
+      let me = +g.mat_every, fme = E ? 1.12 : P.Reff > 1.25 ? 1.06 : P.Reff < 0.8 ? (xm > 3 ? 1 : 0.94) : xm < 0.5 ? 0.94 : xm > 3 ? 1.06 : 1;
       const bme = +(base.mat_every || g.mat_every);
-      me = Math.round(apClamp(me * fme, Math.max(15, bme * 0.5), bme * 2));
+      me = Math.round(apClamp(me * fme, Math.max(15, bme * 0.5), bme * (E ? 3 : 2)));
       // or : bourse médiane comparée aux prix
       const purse = apMedian(act.map(p => +(p.inv?.or || 0))), y = act.length ? purse / (1.5 * Pm) : 1;
       let ge = +g.gold_every; const bge = +(base.gold_every || g.gold_every);
       let fg = y < 0.4 ? 0.92 : y > 3 ? 1.08 : 1;
-      if (P.Reff > 1.25) fg = Math.max(fg, 1.04);                // trop rapide : l'or se fait un peu plus rare (moins d'achats)
+      if (E) fg = Math.max(fg, 1.15);                             // 🚨 l'or se fait nettement plus rare
+      else if (P.Reff > 1.25) fg = Math.max(fg, 1.04);           // trop rapide : l'or se fait un peu plus rare (moins d'achats)
       else if (P.Reff < 0.8 && fg > 1 && y < 6) fg = 1;           // trop lent : on ne rend pas l'or plus rare
-      if (bge > 0) ge = Math.round(apClamp(ge * fg, Math.max(40, bge * 0.4), bge * 2.5));
+      if (bge > 0) ge = Math.round(apClamp(ge * fg, Math.max(40, bge * 0.4), bge * (E ? 4 : 2.5)));
       ap.gold = act.length ? { purse: Math.round(purse), y: +y.toFixed(2) } : null;
       // profondeur : si les joueurs creusent au-dessus de la zone du 💎 et en manquent, on la fait remonter (et redescendre ensuite)
       let sh = +g.mat_shift || 0;
       if (ap.digT != null) {
-        if (X.cristal < 0.6 && ap.digT + sh < 0.5) sh = Math.min(0.4, sh + 0.05);
+        if (X.cristal < 0.6 && ap.digT + sh < 0.5 && !E) sh = Math.min(0.4, sh + 0.05);
         else if (sh > 0 && (X.cristal > 2.5 || ap.digT + sh > 0.85)) sh = Math.max(0, sh - 0.05);
       }
       sh = +sh.toFixed(2);
@@ -3207,15 +3225,16 @@ async function apStep(force) {
     if (ap.prices) {
       let Pt = apClamp(Math.pow(Q, 0.3) * Math.pow(P.Reff, 0.15), 0.6, 1.8);
       if (P.Reff > 1.25) Pt = Math.max(Pt, 1); else if (P.Reff < 0.8) Pt = Math.min(Pt, 1);     // le rythme d'abord, la richesse ensuite
-      if (now - (ap.priceAt || 0) >= AP_PRICE - 5000 && P.conf >= 0.25) {
+      if (E) Pt = Math.max(Pt, apClamp(Math.pow(P.Reff, 0.3), 1, 2));
+      if ((now - (ap.priceAt || 0) >= AP_PRICE - 5000 && P.conf >= 0.25) || (E && now - (ap.priceAt || 0) >= 3600e3 - 5000)) {
         ap.priceAt = now;
-        const P0 = ap.P || 1, Pn = +(P0 * apClamp(Pt / P0, 0.9, 1.1)).toFixed(3);
+        const P0 = ap.P || 1, Pn = +(P0 * apClamp(Pt / P0, 0.9, E ? 1.2 : 1.1)).toFixed(3);
         let n = 0;
         for (const [k, bp] of Object.entries(basePrices)) {
           if (!(bp > 0) || AP_LEGEND.includes(k)) continue;              // pas en vente : choix de l'organisateur
           const cur = shop[k] || bp, want = apNice(bp * Pn);
           if (Math.abs(want - cur) / cur < 0.08) continue;                 // petits écarts : on ne bouge pas (pas de prix qui sautillent)
-          const nv = Math.max(1, apNice(cur * apClamp(want / cur, 0.88, 1.12)));
+          const nv = Math.max(1, apNice(cur * apClamp(want / cur, 0.88, E ? 1.2 : 1.12)));
           if (nv !== cur) { await sql('insert into public.shop (kind, price) values ($1, $2) on conflict (kind) do update set price = excluded.price', [k, nv]); n++; }
         }
         ap.P = Pn;
@@ -3240,12 +3259,28 @@ async function apStep(force) {
         if (n) { changes.push(`🛠️ ${n} recette${n > 1 ? 's' : ''} ${Cn > C0 ? 'un peu plus chère' : 'un peu moins chère'}${n > 1 ? 's' : ''} (×${apDec(Cn)})`); refresh = true; }
       }
     }
+    // ---------- 4) 👊 coups par bloc : seulement en freinage d'urgence (puis retour en douceur) ----------
+    if (ap.base && ap.base.max_hp == null) ap.base.max_hp = +g.max_hp;
+    const hpB = +(ap.base?.max_hp ?? g.max_hp), hpMax = Math.min(30, Math.max(hpB * 4, hpB + 8));
+    let hpN = +g.max_hp;
+    if (ap.brake !== false) {
+      if (E) hpN = Math.min(hpMax, hpN + Math.max(1, Math.round(hpB * 0.25)));
+      else if (hpN > hpB && P.Reff < 1.1 && now - (ap.hpAt || 0) >= 30 * 60e3 - 5000) hpN -= 1;
+    }
+    if (hpN !== +g.max_hp) {
+      ap.hpAt = now;
+      await sql('update public.game set max_hp = $1 where id = 1', [hpN]);
+      await sql('update public.blocks set hp = $1 where hp > $1', [hpN]);
+      gridInvalidate();
+      changes.push(`👊 ${hpN} coups par bloc (avant ${g.max_hp})`);
+      refresh = true;
+    }
     // ---------- historique (pour le tableau de bord) ----------
     const gNow = (await sql('select gold_every, mat_every, mat_shift from public.game where id = 1')).rows[0];
-    ap.hist = [...(ap.hist || []), { t: now, R: +P.R.toFixed(3), conf: +P.conf.toFixed(2), A: ap.A, Ch: ap.Ch, P: ap.P ?? 1, C: ap.C ?? 1, Q: ap.Q,
+    ap.hist = [...(ap.hist || []), { t: now, E: E ? 1 : 0, Rs: ap.Rs, hp: hpN, R: +P.R.toFixed(3), conf: +P.conf.toFixed(2), A: ap.A, Ch: ap.Ch, P: ap.P ?? 1, C: ap.C ?? 1, Q: ap.Q,
       me: +gNow.mat_every, ge: +gNow.gold_every, sh: +(+gNow.mat_shift).toFixed(2), rate: Math.round(P.rate), need: Math.round(P.need), dig: ap.digT, n: changes.length }].slice(-1500);
     // ---------- journal ----------
-    const verdict = P.conf < 0.25 ? 'mesure du rythme en cours' : P.R > 1.25 ? 'trop rapide' : P.R < 0.8 ? 'trop lent' : 'bon rythme';
+    const verdict = E ? '🚨 freinage d’urgence' : P.conf < 0.25 ? 'mesure du rythme en cours' : P.R > 1.25 ? 'trop rapide' : P.R < 0.8 ? 'trop lent' : 'bon rythme';
     const etaTxt = isFinite(P.eta) ? `${apFmt(P.eta)} j` : '∞';
     if (changes.length) apLog(`${verdict} (fin estimée ${etaTxt}, visée ${apFmt(P.daysLeft)} j) → ${changes.join(' · ')}`, 'act');
     else if (ap.steps % 6 === 1) apLog(`${verdict} (fin estimée ${etaTxt}, visée ${apFmt(P.daysLeft)} j) : rien à changer`, 'ok');
@@ -3254,14 +3289,14 @@ async function apStep(force) {
   } catch (e) { noteError('pilote automatique', e.message); }
   finally { apBusy = false; }
 }
-async function apStart(days, prices) {
-  const g = (await sql('select gold_every, mat_every, mat_w, mat_shift from public.game where id = 1')).rows[0];
+async function apStart(days, prices, brake = true) {
+  const g = (await sql('select gold_every, mat_every, mat_w, mat_shift, max_hp from public.game where id = 1')).rows[0];
   const shop = Object.fromEntries((await sql('select kind, price from public.shop')).rows.map(r => [r.kind, +r.price]));
   const recipes = Object.fromEntries((await sql('select result, ingredients from public.recipes')).rows.map(r => [r.result, r.ingredients]));
   const keepBase = ap?.base && ap.on;
   ap = {
-    ...(ap || {}), on: true, days, prices: !!prices, start: new Date().toISOString(), end: new Date(Date.now() + days * 864e5).toISOString(),
-    base: keepBase ? ap.base : { gold_every: g.gold_every, mat_every: g.mat_every, mat_w: g.mat_w, mat_shift: g.mat_shift, prices: shop, recipes },
+    ...(ap || {}), on: true, days, prices: !!prices, brake: brake !== false, emerg: keepBase ? ap.emerg || 0 : 0, start: new Date().toISOString(), end: new Date(Date.now() + days * 864e5).toISOString(),
+    base: keepBase ? ap.base : { gold_every: g.gold_every, mat_every: g.mat_every, mat_w: g.mat_w, mat_shift: g.mat_shift, prices: shop, recipes, max_hp: g.max_hp },
     hist: keepBase ? ap.hist : [], A: keepBase ? ap.A : 1, P: keepBase ? ap.P : 1, C: keepBase ? ap.C : 1, last: 0, ecoAt: 0, priceAt: Date.now(), recipeAt: Date.now(),
   };
   apLog(`▶️ Pilote lancé : fin du cube visée dans ${days} jour${days > 1 ? 's' : ''}${prices ? ', prix et atelier compris' : ''}`, 'start');
@@ -3275,6 +3310,9 @@ async function apStop(restore) {
   if (restore && ap.base) {
     const b = ap.base;
     await sql('update public.game set gold_every = $1, mat_every = $2, mat_w = $3, mat_shift = $4 where id = 1', [b.gold_every, b.mat_every, JSON.stringify(b.mat_w), b.mat_shift || 0]);
+    if (b.max_hp && +b.max_hp !== +(await sql('select max_hp from public.game where id = 1')).rows[0].max_hp) {
+      await sql('update public.game set max_hp = $1 where id = 1', [b.max_hp]); await sql('update public.blocks set hp = $1 where hp > $1', [b.max_hp]); gridInvalidate();
+    }
     if (ap.prices) {
       for (const [k, p] of Object.entries(b.prices || {})) await sql('insert into public.shop (kind, price) values ($1, $2) on conflict (kind) do update set price = excluded.price', [k, p]);
       for (const [k, ing] of Object.entries(b.recipes || {})) await sql('update public.recipes set ingredients = $2 where result = $1', [k, JSON.stringify(ing)]);
@@ -3282,13 +3320,15 @@ async function apStop(restore) {
     apLog('⏹ Pilote arrêté : or, matériaux' + (ap.prices ? ', prix et recettes' : '') + ' remis comme avant son lancement (les artefacts cachés restent où ils sont)', 'stop');
     broadcastAll({ type: 'config', f: 'eco' });
   } else apLog('⏹ Pilote arrêté : les réglages actuels sont gardés', 'stop');
+  ap.emerg = 0;
+  await sql(`update public.game set art_rules = art_rules || '{"emerg": false}'::jsonb where id = 1`).catch(() => {});
   delete ap.base;
   await apSave();
   log('🧭 Pilote automatique arrêté');
 }
 function apPublic(full) {
   const a = ap || {};
-  return { on: !!a.on, days: a.days, prices: !!a.prices, start: a.start, end: a.end, waiting: !!a.waiting, steps: a.steps || 0, last: a.last || null,
+  return { on: !!a.on, days: a.days, prices: !!a.prices, brake: a.brake !== false, emerg: a.emerg || 0, Rs: a.Rs ?? null, start: a.start, end: a.end, waiting: !!a.waiting, steps: a.steps || 0, last: a.last || null,
     A: a.A ?? 1, Ch: a.Ch ?? 1, P: a.P ?? 1, C: a.C ?? 1, Q: a.Q ?? null, X: a.X || null, gold: a.gold || null, digT: a.digT ?? null,
     pace: a.pace || null, log: (a.log || []).slice(0, full ? 80 : 40),
     samples: full ? (a.samples || []) : (a.samples || []).filter((s, k, l) => k % 3 === 0 || k === l.length - 1).slice(-200),

@@ -604,7 +604,7 @@ if (EN) {
 }
 // Messages du serveur (toujours écrits en français) traduits pour les joueurs anglophones
 const ERR_EN = {
-  'Code expiré : demande un nouveau code': 'Code expired: ask for a new one', 'Serveur saturé : le jeu est en pause quelques minutes': 'Server overloaded: the game is paused for a few minutes',
+  'Code expiré : demande un nouveau code': 'Code expired: ask for a new one', 'Les artefacts légendaires ne se fabriquent pas en ce moment': 'Legendary artifacts cannot be crafted right now', 'Serveur saturé : le jeu est en pause quelques minutes': 'Server overloaded: the game is paused for a few minutes',
   'Aucun téléphone à prévenir : active d’abord les notifications dans ⚙️ › 🔔': 'No phone to alert: first turn on notifications in ⚙️ › 🔔', 'Demande d’abord ton code par e-mail': 'First ask for your code by e-mail', 'Trop d’essais : demande un nouveau code': 'Too many tries: ask for a new code', 'Code incorrect': 'Wrong code',
   'Trop de codes demandés : réessaie dans un quart d’heure': 'Too many codes requested: try again in 15 minutes', 'Trop de demandes : réessaie dans une heure': 'Too many requests: try again in an hour',
   'Cet e-mail est déjà utilisé : connecte-toi (ou « Mot de passe oublié ? »)': 'This e-mail is already used: log in (or “Forgot password?”)',
@@ -684,6 +684,8 @@ function trServer(msg) {
   let m;
   if ((m = msg.match(/^Pas assez de « (.+) »$/))) return `Not enough ${ITEM(m[1]).name}`;
   if ((m = msg.match(/^L'Écorce du Monde se recharge : prochaine possible dans (\d+) min$/))) return `The World Peel is recharging: next one possible in ${m[1]} min`;
+  if ((m = msg.match(/^Cet artefact se recharge : encore (\d+) (min|s)$/))) return `This artifact is recharging: ${m[1]} ${m[2]} left`;
+  if ((m = msg.match(/^Limite du jour atteinte : (\d+) artefact\(s\) de ce niveau par jour \(achat et fabrication\), il en reste (\d+)$/))) return `Daily limit reached: ${m[1]} artifact(s) of this level per day (buying and crafting), ${m[2]} left`;
   if ((m = msg.match(/^📜 Mission accomplie ! \+(\d+) 🪙$/))) return `📜 Mission complete! +${m[1]} 🪙`;
   if ((m = msg.match(/^🎯 Objectif de la semaine atteint ! \+(\d+) 🪙$/))) return `🎯 Weekly goal reached! +${m[1]} 🪙`;
   if ((m = msg.match(/^Limite atteinte : (\d+) joueurs maximum/))) return `Limit reached: ${m[1]} players maximum (raise it in 👑 or remove a player)`;
@@ -2066,6 +2068,12 @@ async function pollState() {
     if (!c) return;
     const oldAnn = cfg.announce_at;
     cfg = c;
+    // 👊 coups par bloc changés en cours de partie (pilote automatique) : les blocs intacts prennent la nouvelle valeur
+    if (c.max_hp && hp && c.size === N && c.max_hp !== MAX_HP) {
+      const o = MAX_HP, n = c.max_hp;
+      for (let i = 0; i < TOTAL; i++) { if (hp[i] === o) hp[i] = n; else if (hp[i] > n && hp[i] <= o) hp[i] = n; }
+      MAX_HP = n; requestRender();
+    }
     if (HOME_SERVER && !(chat.open && pm.view !== 'room')) { pm.unread = c.pm_unread || 0; updatePmBadge(); }
     applyEvent(c.event, true);
     if (c.my?.duel) onDuel(c.my.duel);
@@ -3222,6 +3230,20 @@ async function openBag(tab = 'sac') {
 panelRefreshers.bag = p => openBag(p.split(':')[1]);
 
 /* ---------- 🏪 Boutique et marché ---------- */
+// ⚖️ régulation des artefacts puissants : ce qui s'applique en ce moment (recharge et quota du jour)
+const ART_TIERS = { fort: ['seisme', 'vrille', 'grappe', 'givre', 'cor', 'marteau'], tres: ['megabombe', 'chaine', 'tornade', 'pilier'], legend: ['ecorce', 'oeil'] };
+function artRulesHtml(r) {
+  if (!r || r.effective === 'off' || !r.rules) return '';
+  const dur = x => x >= 60 ? L(`${Math.round(x / 60)} min`, `${Math.round(x / 60)} min`) : `${x} s`;
+  const row = (t, ic, nm) => { const q = r.rules[t]; if (!q) return '';
+    const icons = ART_TIERS[t].map(k => ARTIFACTS[k]?.icon || '').join('');
+    return `<div style="margin:3px 0">${ic} <b>${nm}</b> ${icons} · ${L(`une utilisation toutes les ${dur(q.cd)}`, `one use every ${dur(q.cd)}`)} · ${q.cap > 0
+      ? (t === 'legend' ? L(`${q.cap} fabrication${plural(q.cap)} par jour à l’atelier (aujourd’hui : ${r.today?.[t] || 0})`, `${q.cap} crafted a day (today: ${r.today?.[t] || 0})`)
+        : L(`${q.cap} par jour à l’achat et à l’atelier (aujourd’hui : ${r.today?.[t] || 0})`, `${q.cap} a day from the shop and workshop (today: ${r.today?.[t] || 0})`))
+      : L('pas de fabrication', 'no crafting')}</div>`; };
+  return `<div class="mission" style="margin:6px 0 10px;border-color:#9fb4ff66"><b>⚖️ ${L('Artefacts puissants régulés', 'Powerful artifacts are regulated')}${r.emerg ? ` · 🚨 ${L('freinage d’urgence', 'emergency brake')}` : ''}</b>
+    <div class="muted" style="font-size:12px;margin-top:4px">${row('fort', '⭐', L('Forts', 'Strong'))}${row('tres', '⭐⭐', L('Très forts', 'Very strong'))}${row('legend', '✨', L('Légendaires', 'Legendary'))}</div></div>`;
+}
 async function openShop(tab = 'boutique') {
   openModal(L('🏪 Commerce', '🏪 Trading'), `<p class="muted">${L('Chargement…', 'Loading…')}</p>`, 'shop:' + tab);
   await reloadInventory().catch(() => {});
@@ -3231,7 +3253,8 @@ async function openShop(tab = 'boutique') {
   if (tab === 'boutique') {
     const shop = cfg.shop || {};
     if (HOME_SERVER) await refreshRobots();
-    $('mBody').innerHTML = body + `<div class="goldline">🪙 ${fmt.format(gold)}</div>${robotShopHtml(gold)}
+    let rules = null; if (HOME_SERVER) { try { rules = await api.artRules(); } catch (e) {} }
+    $('mBody').innerHTML = body + `<div class="goldline">🪙 ${fmt.format(gold)}</div>${artRulesHtml(rules)}${robotShopHtml(gold)}
       <p class="muted">${L(`Les pièces d’or se trouvent en cassant des blocs (environ 1 bloc sur ${fmt.format(cfg.gold_every || 0)}),
       parfois par bourses entières, et en réussissant des missions.`, `Gold coins are found by breaking blocks (about 1 block in ${fmt.format(cfg.gold_every || 0)}),
       sometimes as whole purses, and by completing missions.`)}</p>` +
@@ -4488,12 +4511,14 @@ async function renderPilot() {
       <p class="muted" style="margin:0 0 6px">${intro}</p>
       <div class="row" style="gap:6px;flex-wrap:wrap;align-items:center"><span>${L('Finir le cube dans', 'Finish the cube in')}</span><input id="pilDays" type="number" min="1" max="3650" value="${a.days || 30}" style="width:80px"><span>${L('jours', 'days')}</span></div>
       <label class="switch"><span>🏪 ${L('Gérer aussi les prix de la boutique et les recettes de l’atelier (changements lents et limités : au plus ±12 % toutes les 6 h pour les prix, ±10 % toutes les 12 h pour l’atelier)', 'Also manage shop prices and workshop recipes (slow, limited changes: at most ±12% every 6 h for prices, ±10% every 12 h for the workshop)')}</span><input type="checkbox" class="chk" id="pilPrices" ${a.prices ? 'checked' : ''}></label>
+      <label class="switch"><span>🚨 ${L('Freinage d’urgence : si la partie s’emballe (3 fois trop vite sur la dernière heure), réglages toutes les 5 min et beaucoup plus forts : bien moins d’artefacts, d’or et de matériaux cachés, prix en hausse, artefacts puissants régulés au niveau strict, et coups nécessaires par bloc augmentés (puis tout redescend en douceur quand ça se calme)',
+        '🚨 Emergency brake: if the game runs away (3 times too fast over the last hour), adjustments every 5 min and much stronger: far fewer hidden artifacts, gold and materials, higher prices, powerful artifacts regulated at the strict level, and more hits per block (then everything eases back when it calms down)')}</span><input type="checkbox" class="chk" id="pilBrake" ${a.brake !== false ? 'checked' : ''}></label>
       <div class="btns"><button id="pilGo" class="primary">▶️ ${L('Lancer le pilote', 'Start the autopilot')}</button></div>
       ${journal ? `<details style="margin-top:6px"><summary>${L('Journal du pilote', 'Autopilot log')}</summary>${journal}</details>` : ''}`;
     $('pilGo').onclick = async () => {
       const days = Math.floor(+$('pilDays').value);
       if (!(days >= 1)) return toast(L('Indique une durée en jours', 'Enter a length in days'));
-      if (await act(() => net.autopilot({ op: 'start', days, prices: $('pilPrices').checked }), L('🧭 Pilote automatique lancé', '🧭 Autopilot started'))) { cfg.autopilot = true; renderPilot(); }
+      if (await act(() => net.autopilot({ op: 'start', days, prices: $('pilPrices').checked, brake: $('pilBrake').checked }), L('🧭 Pilote automatique lancé', '🧭 Autopilot started'))) { cfg.autopilot = true; renderPilot(); }
     };
     return;
   }
@@ -4510,6 +4535,7 @@ async function renderPilot() {
       <div>🎲 ${L('Artefacts cachés', 'Hidden artifacts')}<b>×${dec(a.A, 2)}</b><span class="muted">🎁 ${L('coffres', 'chests')} ×${dec(a.Ch, 2)}</span></div>
       <div>⛏️ ${L('Matériaux', 'Materials')}<b style="font-size:13px">${xm}</b><span class="muted">${cfg.mat_shift > 0 ? L(`💎 remontés de ${Math.round(cfg.mat_shift * 100)} %`, `💎 raised by ${Math.round(cfg.mat_shift * 100)}%`) : L('profondeur normale', 'normal depth')}</span></div>
       <div>🪙 ${L('Or', 'Gold')}<b>${a.gold ? L(`${fmt.format(a.gold.purse)} en poche`, `${fmt.format(a.gold.purse)} in pocket`) : '—'}</b><span class="muted">${L('médiane des joueurs actifs', 'median of active players')}</span></div>
+      <div>🚨 ${L('Freinage d’urgence', 'Emergency brake')}<b style="font-size:14px">${a.brake === false ? L('désactivé', 'off') : a.emerg ? `<span style="color:#ff8a6b">${L('EN COURS', 'ACTIVE')}</span>` : L('prêt', 'ready')}</b><span class="muted">${a.Rs != null ? L(`dernière heure : ×${dec(a.Rs, 1)} le rythme voulu`, `last hour: ×${dec(a.Rs, 1)} the wanted pace`) : ''} · 👊 ${cfg.max_hp || MAX_HP} ${L('coups/bloc', 'hits/block')}</span></div>
       ${a.prices ? `<div>🏪 ${L('Prix · atelier', 'Prices · workshop')}<b>×${dec(a.P, 2)} · ×${dec(a.C, 2)}</b><span class="muted">${L('par rapport au lancement', 'compared to start')}</span></div>` : ''}
     </div>
     ${pilotChart(a)}
@@ -4521,12 +4547,31 @@ async function renderPilot() {
     <label>${L('Journal du pilote', 'Autopilot log')}</label>${journal || `<p class="muted">${L('Rien encore.', 'Nothing yet.')}</p>`}`;
   $('pilChange').onclick = async () => {
     const days = Math.floor(+$('pilDays').value); if (!(days >= 1)) return;
-    if (await act(() => net.autopilot({ op: 'start', days, prices: a.prices }), L('🎯 Nouvelle date de fin enregistrée', '🎯 New end date saved'))) renderPilot();
+    if (await act(() => net.autopilot({ op: 'start', days, prices: a.prices, brake: a.brake }), L('🎯 Nouvelle date de fin enregistrée', '🎯 New end date saved'))) renderPilot();
   };
   $('pilNow').onclick = async () => { if (await act(() => net.autopilot({ op: 'now' }), L('⚡ Réglage fait', '⚡ Adjusted'))) { cfg = (await api.gameState()) || cfg; renderPilot(); } };
   $('pilStop').onclick = async () => { if (await act(() => net.autopilot({ op: 'stop', restore: false }), L('⏹ Pilote arrêté', '⏹ Autopilot stopped'))) { cfg.autopilot = false; renderPilot(); } };
   $('pilStopR').onclick = async () => { if (await act(() => net.autopilot({ op: 'stop', restore: true }), L('⏹ Pilote arrêté, réglages d’avant remis', '⏹ Autopilot stopped, previous settings restored'))) { cfg = (await api.gameState()) || cfg; renderPilot(); } };
   pilotTimer = setTimeout(() => { if (currentPanel === 'admin' && $('admPilot') && !document.hidden) renderPilot(); }, 30000);
+}
+
+/* ---------- ⚖️ Régulation des artefacts puissants (👑) ---------- */
+async function renderArtAdmin() {
+  const box = $('admReg'); if (!box) return;
+  let r; try { r = await api.artRules(); } catch (e) { box.innerHTML = `<h3>⚖️ ${L('Artefacts puissants', 'Powerful artifacts')}</h3><p>⚠️ ${esc(trServer(e.message))}</p>`; return; }
+  if (!$('admReg')) return;
+  const lv = [['off', L('Libres', 'Free')], ['modere', L('Modérés', 'Moderate')], ['strict', L('Stricts', 'Strict')]];
+  box.innerHTML = `<h3>⚖️ ${L('Artefacts puissants', 'Powerful artifacts')}</h3>
+    <p class="muted" style="margin:0 0 6px">${L('Ralentit les artefacts qui détruisent beaucoup d’un coup : un temps de recharge entre deux utilisations (par joueur), et un nombre maximum par jour à l’achat et à l’atelier. Ce qu’on trouve en creusant n’est pas limité. L’Écorce du Monde garde en plus sa recharge de 6 h pour tout le serveur.',
+      'Slows down artifacts that destroy a lot at once: a recharge time between two uses (per player), and a daily maximum from the shop and workshop. What players dig up is not limited. The World Peel also keeps its 6-hour recharge for the whole server.')}</p>
+    <div class="seg">${lv.map(([k, t]) => `<button data-artlv="${k}" class="${r.level === k ? 'on' : ''}">${t}</button>`).join('')}</div>
+    <div style="margin-top:8px">${r.effective === 'off' ? `<p class="muted">${L('Aucune limite en ce moment.', 'No limits right now.')}</p>` : artRulesHtml(r)}</div>
+    <p class="muted" style="font-size:12px;margin:4px 0 0">${L('Modérés : forts 1 min de recharge et 10 par jour, très forts 5 min et 3 par jour, légendaires 30 min et 1 fabrication par jour. Stricts : 3 min / 5 par jour, 15 min / 1 par jour, légendaires 1 h et aucune fabrication. Le freinage d’urgence du pilote passe tout seul en strict le temps qu’il faut.',
+      'Moderate: strong 1 min recharge and 10 a day, very strong 5 min and 3 a day, legendary 30 min and 1 crafted a day. Strict: 3 min / 5 a day, 15 min / 1 a day, legendary 1 h and no crafting. The autopilot’s emergency brake switches to strict by itself for as long as needed.')}</p>`;
+  box.querySelectorAll('[data-artlv]').forEach(b => b.onclick = async () => {
+    if (b.dataset.artlv === r.level) return;
+    if (await act(() => api.setArtRules(b.dataset.artlv), L('⚖️ Régulation enregistrée', '⚖️ Regulation saved'))) renderArtAdmin();
+  });
 }
 
 /* ---------- 📟 Écran TRMNL de l'organisateur (👑) ---------- */
@@ -5346,7 +5391,7 @@ async function openAdmin() {
   $('mBody').innerHTML = `
     ${ONLINE ? '<div id="admAccess"></div><div class="sec" id="admPend"></div><div class="sec" id="admPlayers"></div><div class="sec" id="admMod"></div>' : ''}
     <div class="${ONLINE ? 'sec' : ''}" id="admAnim"></div>
-    ${HOME_SERVER ? '<div class="sec" id="admMusic"></div><div class="sec" id="admSfx"></div><div class="sec" id="admRobots"></div><div class="sec" id="admPilot"></div>' : ''}
+    ${HOME_SERVER ? '<div class="sec" id="admMusic"></div><div class="sec" id="admSfx"></div><div class="sec" id="admRobots"></div><div class="sec" id="admPilot"></div><div class="sec" id="admReg"></div>' : ''}
 
     <div class="sec"><h3>${L('⚙️ Règles du jeu', '⚙️ Game rules')}</h3>
       <p class="muted">${L('Modifiables à tout moment. Les blocs déjà entamés gardent leurs coups restants (sans dépasser le nouveau maximum).',
@@ -5415,7 +5460,7 @@ async function openAdmin() {
 
   const B = $('mBody');
   if (ONLINE) { renderAccess(lim); renderPending(); renderPlayers(); refreshAdminBadge(); renderLog(); renderMod(); }
-  if (HOME_SERVER) { renderMusic(); renderAdminSfx(); renderAdminRobots(); renderPilot(); }
+  if (HOME_SERVER) { renderMusic(); renderAdminSfx(); renderAdminRobots(); renderPilot(); renderArtAdmin(); }
   renderAnim();
   renderPrize(tcfg);
   $('rGo').onclick = async () => {
@@ -7400,6 +7445,8 @@ function makeApi(call, callTable) {
     setPrice: (k, pr) => call('admin_set_price', { p_kind: k, p_price: pr }),
     buy: (k, q) => call('shop_buy', { p_kind: k, p_qty: q }),
     craft: k => call('craft', { p_kind: k }),
+    artRules: () => call('art_rules_state', {}),
+    setArtRules: lvl => call('admin_set_art_rules', { p_level: lvl }),
     market: async () => (await call('market_list')) || [],
     marketCreate: (g, gq, w, wq) => call('market_create', { p_give: g, p_give_qty: gq, p_want: w, p_want_qty: wq }),
     marketCancel: id => call('market_cancel', { p_id: id }),

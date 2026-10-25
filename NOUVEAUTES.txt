@@ -1,3 +1,5 @@
+Version 15.8 : ⚖️ régulation des artefacts puissants (temps de recharge et quota par jour à l’achat et à l’atelier, réglable dans 👑), et 🚨 freinage d’urgence du pilote automatique quand la partie s’emballe.
+
 Version 15.7 : correction du compteur de blocs détruits, qui oubliait les couches arrachées par l’Écorce du Monde à chaque redémarrage du serveur (tableau de bord, pilote automatique).
 
 Version 15.6 : ⏻ l’organisateur peut éteindre le serveur depuis son téléphone (👑 › Serveur), sans redémarrage automatique.
