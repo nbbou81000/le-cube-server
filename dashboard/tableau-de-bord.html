@@ -710,7 +710,7 @@ function rPlayers() {
   chart('cCountry', 'doughnut', co.map(x => x[0]), [{ data: co.map(x => x[1]), multi: true, borderWidth: 0 }]);
   const COLS = [['pseudo', 'Joueur', 'l'], ['blocks', 'Blocs'], ['hits', 'Coups'], ['week_blocks', 'Semaine'], ['purse', '🪙 Poche'], ['gold_found', '🪙 Trouvé'],
     ['arts_found', 'Art. trouvés'], ['arts_used', 'Art. utilisés'], ['bag_arts', 'En sac'], ['chests', 'Coffres'], ['missions', 'Missions'], ['crafted', 'Fabriqués'],
-    ['trades', 'Échanges'], ['deepest', 'Profondeur'], ['combo', 'Combo'], ['best_cps', 'Coups/s max'], ['chat_n', 'Messages'], ['trophies', '🏆'], ['created_at', 'Inscrit'], ['last_seen', 'Vu']];
+    ['trades', 'Échanges'], ['deepest', 'Profondeur'], ['combo', 'Combo'], ['best_cps', 'Coups en 10 s (record)'], ['chat_n', 'Messages'], ['trophies', '🏆'], ['created_at', 'Inscrit'], ['last_seen', 'Vu']];
   let list = ps.filter(p => !plFilter || p.pseudo.toLowerCase().includes(plFilter));
   const k = plSort.k; list.sort((a, b) => { const x = a[k], y = b[k]; if (k === 'pseudo') return plSort.dir * x.localeCompare(y); if (k === 'created_at' || k === 'last_seen') return plSort.dir * ((x ? new Date(x) : 0) - (y ? new Date(y) : 0)); return plSort.dir * ((+x || 0) - (+y || 0)); });
   $('plCount').textContent = `${list.length} / ${ps.length}`;
