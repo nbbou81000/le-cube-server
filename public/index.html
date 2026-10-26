@@ -7003,7 +7003,7 @@ async function renderMailBox() {
     <label>${L('Clé d’API', 'API key')}</label>
     <input id="mlKey" autocomplete="off" placeholder="${c.hasKey ? L(`Clé enregistrée (…${esc(c.keyEnd)}) : colle-en une autre pour la remplacer`, `Key saved (…${esc(c.keyEnd)}): paste another to replace it`) : L('Colle ici la clé copiée depuis Brevo (xkeysib-…)', 'Paste the key copied from Brevo (xkeysib-…)')}">
     <label>${L('Adresse d’envoi (validée chez Brevo)', 'Sender address (verified at Brevo)')}</label>
-    <input id="mlFrom" type="email" value="${esc(c.from || '')}" placeholder="ne-pas-repondre@le-cube.win">
+    <input id="mlFrom" type="email" value="${esc(c.from || '')}" placeholder="no-reply@your-domain.com">
     <label>${L('Nom de l’expéditeur', 'Sender name')}</label><input id="mlName" maxlength="40" value="${esc(c.senderName || 'Le Cube')}">
     <label class="switch"><span>${L('Code par e-mail obligatoire pour s’inscrire', 'E-mail code required to sign up')}</span><input type="checkbox" class="chk" id="mlVerify" ${c.verifyWanted ? 'checked' : ''}></label>
     <label class="switch"><span>${L('« Mot de passe oublié ? » par e-mail', '“Forgot password?” by e-mail')}</span><input type="checkbox" class="chk" id="mlReset" ${c.resetWanted ? 'checked' : ''}></label>
@@ -7016,7 +7016,7 @@ async function renderMailBox() {
       <input id="mlAbGh" value="${esc(c.aboutCfg?.github || '')}" placeholder="https://github.com/…">
       <input id="mlAbKofi" value="${esc(c.aboutCfg?.kofi || '')}" placeholder="https://ko-fi.com/…"></div>
     <label>${L('Contact affiché sur la page Confidentialité (facultatif)', 'Contact shown on the Privacy page (optional)')}</label>
-    <input id="mlContact" maxlength="120" value="${esc(c.contact || '')}" placeholder="${L('ex. : Nico sur le Discord TRMNL', 'e.g. Nico on the TRMNL Discord')}">
+    <input id="mlContact" maxlength="120" value="${esc(c.contact || '')}" placeholder="${L('ex. : Alex sur Discord', 'e.g. Alex on Discord')}">
     <div class="btns"><button id="mlSave" class="small primary">💾 ${L('Enregistrer', 'Save')}</button>
       <a class="small" href="/confidentialite" target="_blank" rel="noopener" style="align-self:center;color:inherit">🔒 ${L('Voir la page Confidentialité', 'See the Privacy page')}</a></div>
     <label>${L('Essayer : s’envoyer un e-mail de test', 'Try it: send yourself a test e-mail')}</label>
