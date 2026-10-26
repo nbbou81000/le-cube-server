@@ -183,7 +183,7 @@ pre.code{background:var(--paper);border:1px solid var(--rule);border-radius:8px;
 </header>
 <div class="banner" id="banner"></div>
 <nav class="tabs" id="nav" hidden><div class="in">
-  <a href="#apercu">Vue d’ensemble</a><a href="#partie">Partie</a><a href="#joueurs">Joueurs</a><a href="#appareils">Appareils</a><a href="#economie">Économie</a>
+  <a href="#apercu">Vue d’ensemble</a><a href="#controle">🎛️ Contrôle</a><a href="#partie">Partie</a><a href="#joueurs">Joueurs</a><a href="#appareils">Appareils</a><a href="#economie">Économie</a>
   <a href="#salon">Salon</a><a href="#pilote">Pilote</a><a href="#securite">Sécurité</a><a href="#serveur">Serveur</a><a href="#base">Base</a><a href="#journal">Journal</a>
 </div></nav>
 
@@ -419,6 +419,12 @@ pre.code{background:var(--paper);border:1px solid var(--rule);border-radius:8px;
     <div class="sheet"><div class="tw"><table id="tSess"></table></div>
       <div style="margin-top:10px"><button class="btn ghost small" id="sessMore" type="button">Afficher plus</button></div></div>
   </section>
+<section id="controle" hidden>
+  <h2>🎛️ Contrôle du jeu</h2>
+  <p class="lead">Tout ce qui se règle d’habitude dans 👑, rangé par thème. Les changements sont appliqués tout de suite, et les joueurs connectés sont prévenus quand il le faut. Les actions sensibles demandent une confirmation.</p>
+  <div class="cnav" id="ckNav"></div>
+  <div id="ckBody"></div>
+</section>
 </main>
 <footer id="foot" hidden></footer>
 
@@ -527,10 +533,11 @@ $('fLogin').onsubmit = async e => {
 };
 
 /* =============== Onglets =============== */
-const TABS = ['apercu', 'partie', 'joueurs', 'appareils', 'economie', 'salon', 'pilote', 'securite', 'serveur', 'base', 'journal'];
+const TABS = ['apercu', 'controle', 'partie', 'joueurs', 'appareils', 'economie', 'salon', 'pilote', 'securite', 'serveur', 'base', 'journal'];
 function route() {
   const t = TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'apercu';
   for (const id of TABS) $(id).hidden = id !== t;
+  if (t === 'controle' && typeof CTL !== 'undefined') CTL.shown = null;
   document.querySelectorAll('nav.tabs a').forEach(a => a.setAttribute('aria-current', a.getAttribute('href') === '#' + t ? 'page' : 'false'));
   render();
   setTimeout(() => Object.values(charts).forEach(c => c.resize()), 0);
@@ -585,10 +592,10 @@ function start() { if (!token) return showLogin(); tick(true); }
 function render() {
   if (!M || !G) return;
   const t = TABS.find(id => !$(id).hidden) || 'apercu';
-  try { ({ apercu: rOverview, partie: rGame, joueurs: rPlayers, appareils: rDevices, economie: rEco, salon: rChat, pilote: rPilot, securite: rSecurity, serveur: rServer, base: rBase, journal: rJournal })[t](); }
+  try { ({ apercu: rOverview, controle: rControl, partie: rGame, joueurs: rPlayers, appareils: rDevices, economie: rEco, salon: rChat, pilote: rPilot, securite: rSecurity, serveur: rServer, base: rBase, journal: rJournal })[t](); }
   catch (e) { console.error(e); }
   $('foot').innerHTML = `Le Cube ${esc(G.game_version || '')} · Node ${esc(M.node || '')} · ${esc(M.hostname || '')}<br>
-    Données lues en direct sur ton PC (toutes les 5 s pour le serveur, toutes les 20 s pour la partie) · aucun chiffre n’est modifié par cette page.`;
+    Données lues en direct sur ton PC (toutes les 5 s pour le serveur, toutes les 20 s pour la partie). Seul l’onglet 🎛️ Contrôle modifie le jeu, et seulement quand tu cliques.`;
 }
 const gm = () => G.game || {};
 const total = () => (gm().size || 0) ** 3;
@@ -1180,5 +1187,467 @@ function fnList() {
 applyTheme();
 start();
 </script>
+<style>
+/* 🎛️ Contrôle */
+.cnav{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 16px}
+.cnav button{background:var(--sheet);border:1.5px solid var(--rule2);border-radius:999px;padding:5px 13px;cursor:pointer;font-size:.9rem;font-weight:650}
+.cnav button[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.cgrid{display:grid;gap:14px;grid-template-columns:minmax(0,1fr)}
+@media(min-width:900px){.cgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.cgrid .wide{grid-column:1/-1}
+.fl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 12px;align-items:center;margin:0 0 10px}
+.fl label{font-size:.9rem}
+.fl label small{display:block;color:var(--ink2);font-size:.78rem}
+.fl input[type=number],.fl input[type=text],.fl select{width:120px;padding:6px 8px;border:1px solid var(--rule2);border-radius:8px;background:var(--paper)}
+.fl input.wide,.fl select.wide{width:200px}
+.tx{width:100%;padding:8px 10px;border:1px solid var(--rule2);border-radius:8px;background:var(--paper);margin:4px 0 8px}
+textarea.tx{min-height:64px;resize:vertical;font-family:inherit}
+.acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.btn.danger{background:var(--clay)}
+.btn.ok{background:var(--sage)}
+.btn[disabled]{opacity:.5;cursor:default}
+.sw{position:relative;width:42px;height:24px;flex:none}
+.sw input{opacity:0;width:0;height:0}
+.sw i{position:absolute;inset:0;border-radius:12px;background:var(--rule2);cursor:pointer;transition:.2s}
+.sw i::after{content:"";position:absolute;width:18px;height:18px;left:3px;top:3px;border-radius:50%;background:var(--sheet);transition:.2s}
+.sw input:checked+i{background:var(--sage)}
+.sw input:checked+i::after{transform:translateX(18px)}
+.prow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--rule)}
+.prow:last-child{border-bottom:0}
+.prow .who{min-width:0;overflow-wrap:anywhere}
+.prow .who small{display:block;color:var(--ink2);font-size:.8rem}
+.prow select{padding:5px 8px;border:1px solid var(--rule2);border-radius:8px;background:var(--paper);max-width:180px}
+.msg{padding:7px 0;border-bottom:1px solid var(--rule);display:flex;gap:8px;align-items:flex-start;font-size:.92rem}
+.msg>div{flex:1;min-width:0;overflow-wrap:anywhere}
+.msg small{color:var(--ink2)}
+.msg button{flex:none}
+#ctlToast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);max-width:min(560px,calc(100% - 32px));background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:10px;font-weight:600;z-index:50;box-shadow:0 6px 24px #0004;opacity:0;pointer-events:none;transition:opacity .25s}
+#ctlToast.on{opacity:1}
+#ctlToast.bad{background:var(--clay);color:#fff}
+.note{font-size:.84rem;color:var(--ink2);margin:0 0 10px}
+.items{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.items label{display:flex;align-items:center;gap:6px;font-size:.88rem;background:var(--paper);border:1px solid var(--rule);border-radius:8px;padding:5px 8px}
+.items input{width:64px;padding:4px 6px;border:1px solid var(--rule2);border-radius:6px;background:var(--sheet);margin-left:auto}
+.state{display:inline-block;font-size:.8rem;font-weight:700;border-radius:999px;padding:1px 9px;background:var(--rule);color:var(--ink2)}
+.state.on{background:var(--sage);color:#fff}
+.state.warn{background:var(--accent);color:var(--on-accent)}
+</style>
+
+<div id="ctlToast" role="status" aria-live="polite"></div>
+<script>
+'use strict';
+/* =============== 🎛️ CONTRÔLE DU JEU =============== */
+const CTL = { tab: (() => { try { return localStorage.getItem('lc-ctl-tab') || 'serveur'; } catch (e) { return 'serveur'; } })(), shown: null, busy: false };
+const CTABS = [['serveur', '🖥️ Serveur'], ['acces', '🚪 Accès'], ['joueurs', '👥 Joueurs'], ['salon', '💬 Salon'], ['partie', '🎮 Partie'],
+  ['economie', '💰 Économie'], ['tresor', '🏆 Trésor et lots'], ['pilote', '🧭 Pilote'], ['musique', '🎵 Musique'], ['public', '✉️ E-mails et public']];
+const rpc = async (fn, args) => (await post('/api/rpc/' + fn, args || {})).data;
+const adm = (action, body) => post('/api/admin/' + action, body || {});
+const tell = (type, f, extra) => adm('broadcast', { type, f, ...(extra || {}) }).catch(() => {});
+let toastT = null;
+function ctoast(t, bad) { const el = $('ctlToast'); el.textContent = t; el.classList.toggle('bad', !!bad); el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), bad ? 6000 : 3200); }
+async function act(fn, okMsg, confirmMsg) {
+  if (confirmMsg && !confirm(confirmMsg)) return null;
+  try { const r = await fn(); if (okMsg) ctoast(typeof okMsg === 'function' ? okMsg(r) : okMsg); return r ?? true; }
+  catch (e) { if (e.auth) { showLogin('Session expirée : reconnecte-toi.'); return null; } ctoast('⚠️ ' + e.message, true); return null; }
+}
+const sw = (id, on) => `<label class="sw"><input type="checkbox" id="${id}" ${on ? 'checked' : ''}><i></i></label>`;
+const num = (id, v, min, max, w) => `<input type="number" id="${id}" value="${v ?? ''}" ${min != null ? `min="${min}"` : ''} ${max != null ? `max="${max}"` : ''} ${w ? `style="width:${w}px"` : ''}>`;
+const val = id => $(id).value.trim(), n0 = id => Math.max(0, Math.floor(+$(id).value) || 0), chk = id => $(id).checked;
+const itemName = k => { const [i, n] = item(k); return `${i} ${n}`; };
+const ART_KINDS = ['bombe', 'foreuse', 'dynamite', 'marteau', 'radar', 'scie', 'sonde', 'aimant', 'trefle', 'sablier', 'fontaine', 'seisme', 'cor', 'vrille', 'grappe', 'givre', 'megabombe', 'chaine', 'tornade', 'pilier', 'ecorce', 'oeil'];
+const PRIZE_KINDS = ['or', 'silex', 'fer', 'poudre', 'cristal', ...ART_KINDS];
+const parseBag = s => { const o = {}; for (const part of String(s || '').split(/[,;\n]/)) { const m = part.trim().match(/^([a-z_]+)\s*[:=x×]\s*(\d+)$/i); if (m && +m[2] > 0) o[m[1].toLowerCase()] = +m[2]; } return o; };
+const bagTxt = o => Object.entries(o || {}).filter(([, q]) => +q > 0).map(([k, q]) => `${k}: ${q}`).join(', ');
+const sheet = (title, inner, cls = '') => `<div class="sheet ${cls}"><h3>${title}</h3>${inner}</div>`;
+
+function rControl() {
+  $('ckNav').innerHTML = CTABS.map(([k, t]) => `<button type="button" data-ct="${k}" aria-pressed="${CTL.tab === k}">${t}</button>`).join('');
+  $('ckNav').querySelectorAll('[data-ct]').forEach(b => b.onclick = () => { CTL.tab = b.dataset.ct; try { localStorage.setItem('lc-ctl-tab', CTL.tab); } catch (e) {} CTL.shown = null; rControl(); });
+  if (CTL.shown === CTL.tab) return;                       // pas de redessin pendant qu'on remplit un formulaire
+  CTL.shown = CTL.tab;
+  $('ckBody').innerHTML = '<p class="muted">Chargement…</p>';
+  ({ serveur: cServer, acces: cAccess, joueurs: cPlayers, salon: cChat, partie: cGame, economie: cEco, tresor: cTreasure, pilote: cPilot, musique: cMusic, public: cPublic })[CTL.tab]()
+    .catch(e => { if (e.auth) return showLogin('Session expirée : reconnecte-toi.'); $('ckBody').innerHTML = `<p class="muted">⚠️ ${esc(e.message)}</p>`; });
+}
+const reshow = () => { CTL.shown = null; rControl(); };
+
+/* ---------- 🖥️ Serveur ---------- */
+async function cServer() {
+  const st = await adm('status'), gd = await adm('guard').catch(() => null), lt = await adm('load-test-status').catch(() => null);
+  const g = st.game || {}, tun = st.tunnel || {};
+  $('ckBody').innerHTML = `<div class="cgrid">
+    ${sheet('État', `<dl class="kv">${kv([
+      ['Version', esc(st.game_version || '?')], ['Joueurs en ligne', `${fmt(st.players_online)}${g.max_online ? ` / ${g.max_online}` : ''}${st.queue ? ` · <b>${st.queue} dans la file</b>` : ''}`],
+      ['Tunnel', tun.mode === 'partagé' ? '2ᵉ serveur (tunnel du premier)' : tun.ok ? 'connecté' : esc(tun.mode || '—')], ['En marche depuis', dur(st.uptime_s || 0)],
+      ['Processeur', `${st.cpu_pct} %`], ['Dernière sauvegarde', st.backups?.length ? dateTime(st.backups[st.backups.length - 1].at) : 'aucune'],
+    ])}</dl>
+    <div class="acts"><button class="btn small ghost" id="ckBk">💾 Sauvegarder maintenant</button><button class="btn small ghost" id="ckDl">⬇️ Télécharger la dernière</button></div>`)}
+    ${sheet('Marche / arrêt', `<p class="note">« Redémarrer » relance le jeu en quelques secondes. « Éteindre » l’arrête pour de bon : il ne redémarre pas tout seul, il faudra relancer 2-DEMARRER.bat sur le PC (ou redémarrer le PC si le démarrage auto est activé).</p>
+      <div class="acts"><button class="btn ghost" id="ckRestart">🔄 Redémarrer le serveur</button><button class="btn danger" id="ckOff">⏻ Éteindre le serveur</button></div>`)}
+    ${sheet('📣 Message à tous les joueurs', `<p class="note">Affiché dans le jeu et envoyé en notification sur les téléphones.</p>
+      <input class="tx" id="ckNtT" maxlength="80" placeholder="Titre (facultatif)"><textarea class="tx" id="ckNtB" maxlength="300" placeholder="Ton message…"></textarea>
+      <div class="acts"><button class="btn" id="ckNt">📣 Envoyer</button></div>`)}
+    ${gd ? sheet(`🔥 Protection anti-surchauffe <span class="state ${gd.paused ? 'warn' : gd.on ? 'on' : ''}">${gd.paused ? 'jeu en pause' : gd.on ? 'active' : 'désactivée'}</span>`, `
+      ${gd.paused ? `<p class="note"><b>Pause depuis ${dateTime(gd.since)}</b> : ${esc(gd.reason)} · réouverture à ${hm(gd.until)}</p><div class="acts" style="margin:0 0 10px"><button class="btn ok small" id="ckGdRe">▶️ Rouvrir maintenant</button></div>` : ''}
+      <p class="note">En ce moment : processeur ${gd.last?.cpu ?? '—'} % · retard ${gd.last?.lag ?? '—'} ms · mémoire ${gd.last?.mem ?? '—'} %</p>
+      <div class="fl"><label>Protection active</label>${sw('ckGdOn', gd.on)}
+        <label>Processeur du PC ≥ (%)</label>${num('ckGdCpu', gd.cpu, 50, 100)}<label>ou jeu en retard ≥ (ms)</label>${num('ckGdLag', gd.lag, 50, 5000)}
+        <label>ou mémoire ≥ (%)</label>${num('ckGdMem', gd.mem, 50, 100)}<label>pendant (minutes d’affilée)</label>${num('ckGdMin', gd.mins, 1, 30)}
+        <label>durée de la pause (minutes)</label>${num('ckGdPau', gd.pause, 1, 120)}</div>
+      <div class="acts"><button class="btn" id="ckGdSave">💾 Enregistrer</button><button class="btn ghost" id="ckGdTest">🔔 Tester la notification</button></div>`) : ''}
+    ${st.vps ? '' : sheet('📦 Mise à jour du jeu', `<p class="note">Choisis le zip de la nouvelle version : le serveur fait une sauvegarde, remplace les fichiers du jeu (jamais la partie) et redémarre.</p>
+      <input type="file" id="ckUpF" accept=".zip"><input class="tx" id="ckUpN" maxlength="200" placeholder="Note pour les joueurs (facultatif)">
+      <div class="acts"><button class="btn" id="ckUp">📦 Installer</button>${st.prev_version ? `<button class="btn ghost" id="ckUpBack">↩️ Revenir à la version d’avant (${esc(st.prev_version.from)})</button>` : ''}</div><p class="note" id="ckUpMsg"></p>`)}
+    ${sheet('🧪 Test de capacité', `<p class="note">Simule 20, 40, 60 puis 80 joueurs qui frappent sans arrêt (environ 1 min 30). Rien n’est modifié dans la partie. À lancer quand personne ne joue.</p>
+      <div class="acts"><button class="btn ghost" id="ckLt" ${lt?.running ? 'disabled' : ''}>🧪 Lancer le test</button></div>
+      <div id="ckLtRes">${ltTable(lt)}</div>`)}
+  </div>`;
+  $('ckBk').onclick = () => act(() => adm('backup-now'), r => `💾 Sauvegarde faite : ${r.name}`);
+  $('ckDl').onclick = async () => {
+    try { const r = await fetch('/api/admin/download-backup', { method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }, body: '{}' });
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'Erreur ' + r.status);
+      const name = (r.headers.get('Content-Disposition') || '').match(/filename="([^"]+)"/)?.[1] || 'le-cube-sauvegarde.tar.gz';
+      const a = document.createElement('a'); a.href = URL.createObjectURL(await r.blob()); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 60000); ctoast('⬇️ ' + name);
+    } catch (e) { ctoast('⚠️ ' + e.message, true); }
+  };
+  $('ckRestart').onclick = () => act(() => adm('restart'), '🔄 Le serveur redémarre…', 'Redémarrer le serveur ? Les joueurs sont déconnectés quelques secondes.');
+  $('ckOff').onclick = () => act(() => adm('shutdown'), '⏻ Serveur éteint. Pour le rallumer : relance 2-DEMARRER.bat sur le PC.',
+    'Éteindre le serveur pour de bon ?\n\nLes joueurs sont déconnectés et il ne redémarrera PAS tout seul. Pour le rallumer, il faudra relancer 2-DEMARRER.bat sur le PC.');
+  $('ckNt').onclick = () => act(() => adm('notify', { title: val('ckNtT'), body: val('ckNtB') }), r => `📣 Message envoyé (${r.sent ?? 0} notification(s))`, 'Envoyer ce message à tous les joueurs ?').then(r => { if (r) { $('ckNtB').value = ''; $('ckNtT').value = ''; } });
+  if ($('ckGdSave')) $('ckGdSave').onclick = async () => { if (await act(() => adm('guard', { set: { on: chk('ckGdOn'), cpu: +val('ckGdCpu'), lag: +val('ckGdLag'), mem: +val('ckGdMem'), mins: +val('ckGdMin'), pause: +val('ckGdPau') } }), '🔥 Protection enregistrée')) reshow(); };
+  if ($('ckGdTest')) $('ckGdTest').onclick = () => act(() => adm('guard', { op: 'test' }), '🔔 Notification de test envoyée');
+  if ($('ckGdRe')) $('ckGdRe').onclick = async () => { if (await act(() => adm('guard', { op: 'reopen' }), '▶️ Jeu rouvert')) reshow(); };
+  if ($('ckUp')) $('ckUp').onclick = () => {
+    const f = $('ckUpF').files[0]; if (!f) return ctoast('Choisis d’abord le zip', true);
+    if (!confirm(`Installer ${f.name} ? Le serveur fait une sauvegarde puis redémarre.`)) return;
+    const x = new XMLHttpRequest(); x.open('POST', `/api/admin/update?note=${encodeURIComponent(val('ckUpN'))}&notify=1`); x.setRequestHeader('Authorization', 'Bearer ' + token);
+    x.upload.onprogress = e => { if (e.lengthComputable) $('ckUpMsg').textContent = `Envoi… ${Math.round(100 * e.loaded / e.total)} %`; };
+    x.onload = () => { let j = {}; try { j = JSON.parse(x.responseText); } catch (e) {} if (x.status === 200 && !j.error) { $('ckUpMsg').textContent = '✅ Installé : le serveur redémarre, recharge cette page dans 20 secondes.'; ctoast('📦 Mise à jour installée'); } else { $('ckUpMsg').textContent = '⚠️ ' + (j.error || 'Erreur ' + x.status); } };
+    x.onerror = () => { $('ckUpMsg').textContent = '⚠️ Envoi interrompu'; }; x.send(f);
+  };
+  if ($('ckUpBack')) $('ckUpBack').onclick = () => act(() => adm('update-rollback'), '↩️ Retour à la version d’avant : le serveur redémarre', 'Remettre la version précédente du jeu ? La partie n’est pas touchée.');
+  $('ckLt').onclick = async () => { if (await act(() => adm('load-test', { steps: [20, 40, 60, 80], seconds: 20 }), '🧪 Test lancé', 'Lancer le test de capacité (environ 1 min 30) ?')) pollLt(); };
+  if (lt?.running) pollLt();
+}
+function ltTable(t) {
+  const rows = t?.results || [];
+  if (!rows.length) return t?.running ? `<p class="note">⏳ Test en cours : ${t.step} faux joueurs…</p>` : '';
+  const v = r => r.p95_ms <= 100 ? '🟢 fluide' : r.p95_ms <= 300 ? '🟠 jouable' : '🔴 trop lent';
+  return `${t.running ? `<p class="note">⏳ Test en cours : ${t.step} faux joueurs…</p>` : ''}<div class="tw"><table><tr><th class="l">Joueurs</th><th>Réponse</th><th>95 %</th><th>Processeur</th><th>Envoi</th><th class="l"></th></tr>
+    ${rows.map(r => `<tr><td class="l"><b>${r.bots}</b></td><td>${r.avg_ms} ms</td><td>${r.p95_ms} ms</td><td>${r.cpu_pct} %</td><td>${fmt1(r.upload_mbit)} Mbit/s</td><td class="l">${v(r)}</td></tr>`).join('')}</table></div>`;
+}
+async function pollLt() { const t = await adm('load-test-status').catch(() => null); if (!$('ckLtRes') || CTL.tab !== 'serveur') return; $('ckLtRes').innerHTML = ltTable(t); if (t?.running) setTimeout(pollLt, 2000); else if ($('ckLt')) $('ckLt').disabled = false; }
+
+/* ---------- 🚪 Accès ---------- */
+async function cAccess() {
+  const lim = await rpc('admin_limits'), ps = (await rpc('admin_players')) || [];
+  const pend = ps.filter(p => p.status === 'pending' && !p.is_admin);
+  $('ckBody').innerHTML = `<div class="cgrid">
+    ${sheet('Inscriptions et places', `<div class="fl">
+      <label>Inscriptions ouvertes</label>${sw('ckSo', lim.signups_open)}
+      <label>Validation automatique<small>dans la limite du nombre de comptes</small></label>${sw('ckAa', lim.auto_approve)}
+      <label>Comptes validés au maximum<small>sans toi · 0 = illimité · actuellement ${fmt(lim.approved || 0)}</small></label>${num('ckMp', lim.max_players, 0, 100000)}
+      <label>Joueurs connectés en même temps<small>0 = illimité · au-delà : file d’attente</small></label>${num('ckMo', lim.max_online, 0, 100000)}</div>
+      <div class="acts"><button class="btn" id="ckLim">💾 Enregistrer</button></div>`)}
+    ${sheet(`Inscriptions en attente <small>${pend.length}</small>`, pend.length ? `${pend.map(p => `<div class="prow"><div class="who"><b>${esc(p.pseudo)}</b><small>${esc(p.email || '')} · ${ago(p.created_at)}</small></div>
+        <div class="acts" style="margin:0"><button class="btn ok small" data-ok="${p.id}">✓ Valider</button><button class="btn ghost small" data-no="${p.id}">✗ Refuser</button></div></div>`).join('')}
+      <div class="acts"><button class="btn ok small" id="ckAllOk">✓ Tout valider (${pend.length})</button><button class="btn ghost small" id="ckAllNo">✗ Tout refuser</button></div>` : '<p class="empty">Personne n’attend.</p>')}
+  </div>`;
+  $('ckLim').onclick = async () => { if (await act(() => rpc('admin_set_limits', { p_signups_open: chk('ckSo'), p_auto_approve: chk('ckAa'), p_max_players: n0('ckMp'), p_max_online: n0('ckMo') }), '🚪 Accès enregistré')) reshow(); };
+  const one = (id, s) => act(() => rpc('admin_set_status', { p: id, s }), s === 'approved' ? '✓ Joueur validé' : '✗ Inscription refusée').then(r => r && reshow());
+  $('ckBody').querySelectorAll('[data-ok]').forEach(b => b.onclick = () => one(b.dataset.ok, 'approved'));
+  $('ckBody').querySelectorAll('[data-no]').forEach(b => b.onclick = () => one(b.dataset.no, 'refused'));
+  const many = s => act(() => rpc('admin_set_status_many', { ids: pend.map(p => p.id), s }), s === 'approved' ? '✓ Tout le monde est validé' : '✗ Inscriptions refusées', s === 'refused' ? `Refuser les ${pend.length} inscriptions ?` : null).then(r => r && reshow());
+  if ($('ckAllOk')) { $('ckAllOk').onclick = () => many('approved'); $('ckAllNo').onclick = () => many('refused'); }
+}
+
+/* ---------- 👥 Joueurs ---------- */
+const P_ACTIONS = [['', 'Action…'], ['approve', '✓ Valider'], ['refuse', '✗ Retirer l’accès (refuser)'], ['warn', '⚠️ Avertir'], ['mute:15', '🔇 Muet 15 min'], ['mute:60', '🔇 Muet 1 h'], ['mute:1440', '🔇 Muet 24 h'], ['unmute', '🔊 Lever le silence'],
+  ['chatban', '🚫 Interdire le salon'], ['unchatban', '💬 Rendre le salon'], ['kick:5', '👢 Exclure 5 min'], ['ban:60', '⛔ Exclure 1 h'], ['ban:1440', '⛔ Exclure 24 h'], ['ban:10080', '⛔ Exclure 7 jours'], ['ban:0', '⛔ Exclure définitivement'],
+  ['unban', '✅ Lever l’exclusion'], ['purge', '🧹 Effacer ses messages'], ['mod', '🛡️ Nommer modérateur'], ['unmod', '🛡️ Retirer modérateur'], ['disconnect', '🔌 Déconnecter maintenant'],
+  ['password', '🔑 Nouveau mot de passe'], ['rename', '✏️ Renommer'], ['lock', '🔒 Bloquer son pseudo'], ['unlock', '🔓 Débloquer son pseudo'], ['delete', '🗑️ Supprimer (comptes refusés)']];
+let pFilter = { q: '', f: 'all' };
+async function cPlayers() {
+  const ps = ((await rpc('admin_players')) || []).filter(p => !p.is_admin), on = new Set((M?.conns || []).map(c => c.id));
+  const now = Date.now();
+  const flags = p => [p.is_mod && '🛡️ modérateur', p.chat_muted_until && new Date(p.chat_muted_until) > now && `🔇 jusqu’à ${hm(p.chat_muted_until)}`, p.chat_banned && '🚫 salon interdit',
+    p.banned_until && new Date(p.banned_until) > now && `⛔ exclu jusqu’au ${dateTime(p.banned_until)}`, p.warnings && `⚠️ ${p.warnings}`, p.pseudo_locked && '🔒 pseudo bloqué'].filter(Boolean).join(' · ');
+  const draw = () => {
+    const q = pFilter.q.toLowerCase();
+    const list = ps.filter(p => (pFilter.f === 'all' || (pFilter.f === 'on' ? on.has(p.id) : p.status === pFilter.f)) && (!q || p.pseudo.toLowerCase().includes(q) || (p.email || '').toLowerCase().includes(q)));
+    $('ckPl').innerHTML = list.length ? list.slice(0, 200).map(p => `<div class="prow"><div class="who">${on.has(p.id) ? '<span class="dot"></span>' : ''}<b>${esc(p.pseudo)}</b>
+        <span class="chip ${p.status === 'approved' ? 'good' : p.status === 'refused' ? 'bad' : 'none'}" style="margin-left:6px">${{ approved: 'validé', pending: 'en attente', refused: 'refusé' }[p.status] || esc(p.status)}</span>
+        <small>${esc(p.email || '')} · vu ${p.last_seen ? ago(p.last_seen) : 'jamais'}${flags(p) ? ' · ' + flags(p) : ''}</small></div>
+      <select data-pa="${p.id}" data-pn="${esc(p.pseudo)}">${P_ACTIONS.map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select></div>`).join('')
+      + (list.length > 200 ? `<p class="note">… ${list.length - 200} de plus : affine la recherche.</p>` : '') : '<p class="empty">Aucun joueur.</p>';
+    $('ckPl').querySelectorAll('[data-pa]').forEach(s => s.onchange = () => { const v = s.value; s.value = ''; if (v) playerAct(s.dataset.pa, s.dataset.pn, v); });
+  };
+  $('ckBody').innerHTML = sheet(`Comptes des joueurs <small>${ps.length} au total · ${ps.filter(p => on.has(p.id)).length} en ligne</small>`, `
+    <div class="frow"><input class="search" id="ckPq" placeholder="🔎 Pseudo ou e-mail…" value="${esc(pFilter.q)}">
+      <select id="ckPf">${[['all', 'Tous'], ['approved', 'Validés'], ['on', 'En ligne'], ['pending', 'En attente'], ['refused', 'Refusés']].map(([v, t]) => `<option value="${v}" ${pFilter.f === v ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+    <div id="ckPl"></div>
+    ${ps.some(p => p.status === 'refused') ? `<div class="acts"><button class="btn ghost small" id="ckDelRef">🗑️ Supprimer tous les comptes refusés (${ps.filter(p => p.status === 'refused').length})</button></div>` : ''}`);
+  $('ckPq').oninput = e => { pFilter.q = e.target.value; draw(); };
+  $('ckPf').onchange = e => { pFilter.f = e.target.value; draw(); };
+  if ($('ckDelRef')) $('ckDelRef').onclick = () => act(() => adm('delete-accounts', { ids: ps.filter(p => p.status === 'refused').map(p => p.id) }), r => `🗑️ ${r.deleted ?? ''} compte(s) supprimé(s)`, 'Supprimer pour de bon tous les comptes refusés, avec tout ce qu’ils contiennent ?').then(r => r && reshow());
+  draw();
+}
+async function playerAct(id, name, v) {
+  const [a, m] = v.split(':'), mins = m != null ? +m : null;
+  let r;
+  if (a === 'approve' || a === 'refuse') r = await act(() => rpc('admin_set_status', { p: id, s: a === 'approve' ? 'approved' : 'refused' }), `${name} : ${a === 'approve' ? 'validé' : 'accès retiré'}`, a === 'refuse' ? `Retirer l’accès au jeu à ${name} ?` : null);
+  else if (a === 'disconnect') r = await act(() => adm('kick-socket', { user_id: id }), `🔌 ${name} déconnecté`);
+  else if (a === 'password') { const pw = prompt(`Nouveau mot de passe pour ${name} (6 caractères minimum) :`); if (!pw) return; r = await act(() => adm('reset-password', { user_id: id, password: pw }), `🔑 Mot de passe de ${name} changé`); }
+  else if (a === 'rename') { const ps = prompt(`Nouveau pseudo pour ${name} :`, name); if (!ps || ps === name) return; r = await act(() => rpc('admin_set_pseudo', { p: id, p_pseudo: ps, p_lock: null }), `✏️ ${name} → ${ps}`); }
+  else if (a === 'lock' || a === 'unlock') r = await act(() => rpc('admin_set_pseudo', { p: id, p_pseudo: '', p_lock: a === 'lock' }), a === 'lock' ? '🔒 Pseudo bloqué' : '🔓 Pseudo débloqué');
+  else if (a === 'delete') r = await act(() => adm('delete-accounts', { ids: [id] }), `🗑️ Compte de ${name} supprimé`, `Supprimer pour de bon le compte de ${name} ? (seulement s’il est refusé)`);
+  else {
+    let reason = '';
+    if (['warn', 'mute', 'chatban', 'kick', 'ban'].includes(a)) { reason = prompt(`Raison (facultatif, ${name} la verra) :`, ''); if (reason === null) return; }
+    if (a === 'ban' && !confirm(`Exclure ${name} du jeu (${mins ? (mins < 1440 ? mins / 60 + ' h' : mins / 1440 + ' j') : 'définitivement'}) ?`)) return;
+    if (a === 'purge' && !confirm(`Effacer tous les messages de ${name} ?`)) return;
+    r = await act(() => rpc('mod_action', { p_target: id, p_action: a, p_minutes: mins, p_reason: reason }), `${name} : fait ✓`);
+  }
+  if (r) reshow();
+}
+
+/* ---------- 💬 Salon ---------- */
+async function cChat() {
+  const ov = await rpc('mod_overview'), st = await rpc('game_state'), msgs = (await rpc('chat_list', { before_id: null, lim: 40 })) || [];
+  const s = ov.settings || {};
+  const reports = ov.reports || [];
+  $('ckBody').innerHTML = `<div class="cgrid">
+    ${sheet('📌 Annonce épinglée', `<p class="note">Affichée en haut du salon pour tout le monde.${st.announce ? '' : ' Aucune en ce moment.'}</p>
+      <textarea class="tx" id="ckAn" maxlength="300" placeholder="Ton annonce…">${esc(st.announce || '')}</textarea>
+      <div class="acts"><button class="btn" id="ckAnS">📌 Épingler</button>${st.announce ? '<button class="btn ghost" id="ckAnD">Retirer</button>' : ''}</div>`)}
+    ${sheet('Règles du salon', `<div class="fl">
+      <label>🔒 Salon verrouillé<small>seuls toi et les modérateurs écrivent</small></label>${sw('ckLk', s.chat_locked)}
+      <label>🔗 Liens autorisés</label>${sw('ckLn', s.chat_links)}
+      <label>🐢 Mode lent<small>secondes entre deux messages · 0 = non</small></label>${num('ckSl', s.chat_slow, 0, 3600)}
+      <label>🆕 Nouveaux joueurs<small>minutes de jeu avant de pouvoir écrire</small></label>${num('ckNw', s.chat_newbie_min, 0, 10000)}
+      <label>🤖 Filtre automatique des gros mots</label>${sw('ckBo', s.bot_on)}
+      <label>Délai de changement de pseudo<small>jours</small></label>${num('ckPsd', s.pseudo_days, 0, 365)}</div>
+      <label class="note" for="ckBw">Mots interdits (séparés par des virgules)</label><textarea class="tx" id="ckBw">${esc(s.bot_words || '')}</textarea>
+      <div class="acts"><button class="btn" id="ckMs">💾 Enregistrer</button></div>`)}
+    ${sheet(`🚩 Signalements <small>${reports.length}</small>`, reports.length ? reports.map(r => `<div class="msg"><div><b>${esc(r.target_pseudo || '?')}</b> <small>${ago(r.at)} · signalé par ${esc(r.reporter || '?')}${r.reason ? ' : ' + esc(r.reason) : ''}</small><br>${esc(r.body || '')}</div>
+        ${r.message_id ? `<button class="btn ghost small" data-rdel="${r.message_id}" data-rid="${r.id}" title="Supprimer le message">🗑️</button>` : ''}<button class="btn ghost small" data-rok="${r.id}">✓</button></div>`).join('') + '<div class="acts"><button class="btn ghost small" id="ckRall">✓ Tout classer</button></div>' : '<p class="empty">Aucun signalement.</p>')}
+    ${sheet('Derniers messages', `<div id="ckMsgs">${msgs.length ? msgs.slice(-40).reverse().map(m => `<div class="msg"><div><b>${esc(m.pseudo || '?')}</b> <small>${ago(m.at)}</small><br>${esc(m.body || '')}</div><button class="btn ghost small" data-del="${m.id}" title="Supprimer">🗑️</button></div>`).join('') : '<p class="empty">Le salon est vide.</p>'}</div>
+      <div class="acts"><button class="btn ghost small" id="ckClr7">🧹 Effacer les messages de plus de 7 jours</button><button class="btn danger small" id="ckClr0">🧹 Vider tout le salon</button></div>`, 'wide')}
+  </div>`;
+  $('ckAnS').onclick = async () => { if (await act(() => rpc('admin_set_announce', { p_text: val('ckAn') }), '📌 Annonce épinglée')) { tell('config', 'announce'); reshow(); } };
+  if ($('ckAnD')) $('ckAnD').onclick = async () => { if (await act(() => rpc('admin_set_announce', { p_text: '' }), 'Annonce retirée')) { tell('config', 'announce'); reshow(); } };
+  $('ckMs').onclick = async () => {
+    const o = { ...s, chat_locked: chk('ckLk'), chat_links: chk('ckLn'), chat_slow: n0('ckSl'), chat_newbie_min: n0('ckNw'), bot_on: chk('ckBo'), bot_words: $('ckBw').value, pseudo_days: n0('ckPsd') };
+    if (await act(() => rpc('mod_settings', { p: o }), '💬 Règles du salon enregistrées')) { tell('config', 'chat'); reshow(); }
+  };
+  $('ckBody').querySelectorAll('[data-del]').forEach(b => b.onclick = async () => { if (await act(() => rpc('admin_chat_delete', { p_id: +b.dataset.del }), '🗑️ Message supprimé')) b.closest('.msg').remove(); });
+  $('ckBody').querySelectorAll('[data-rok]').forEach(b => b.onclick = async () => { if (await act(() => rpc('mod_report_close', { p_id: +b.dataset.rok }))) reshow(); });
+  $('ckBody').querySelectorAll('[data-rdel]').forEach(b => b.onclick = async () => { if (b.dataset.rdel && await act(() => rpc('admin_chat_delete', { p_id: +b.dataset.rdel }), '🗑️ Message supprimé')) { await rpc('mod_report_close', { p_id: +b.dataset.rid }).catch(() => {}); reshow(); } });
+  if ($('ckRall')) $('ckRall').onclick = async () => { if (await act(() => rpc('mod_report_close', { p_id: null }), '✓ Signalements classés')) reshow(); };
+  $('ckClr7').onclick = async () => { if (await act(() => rpc('admin_chat_clear', { older_days: 7 }), n => `🧹 ${n || 0} message(s) effacé(s)`, 'Effacer les messages de plus de 7 jours ?')) reshow(); };
+  $('ckClr0').onclick = async () => { if (await act(() => rpc('admin_chat_clear', { older_days: 0 }), n => `🧹 ${n || 0} message(s) effacé(s)`, 'Vider TOUT le salon ? Impossible de revenir en arrière.')) reshow(); };
+}
+
+/* ---------- 🎮 Partie ---------- */
+const THEMES_G = [['classique', 'Classique'], ['halloween', 'Halloween'], ['noel', 'Noël'], ['espace', 'Espace'], ['ocean', 'Océan'], ['bonbons', 'Bonbons'], ['photo', 'Ma photo']];
+async function cGame() {
+  const st = await rpc('game_state'), ev = await rpc('admin_events');
+  const mw = st.mat_w || {}, wk = st.week || {};
+  const list = (ev.list || []).filter(e => e.enabled !== false);
+  $('ckBody').innerHTML = `<div class="cgrid">
+    ${sheet('⚙️ Règles du jeu', `<div class="fl">
+      <label>Coups pour casser un bloc<small>1 à 100 · les joueurs rechargent le jeu</small></label>${num('ckHp', st.max_hp, 1, 100)}
+      <label>Pièces d’or : 1 bloc sur…<small>0 = aucune</small></label>${num('ckGe', st.gold_every, 0, 1000000)}
+      <label>Matériaux : 1 bloc sur…<small>0 = aucun</small></label>${num('ckMe', st.mat_every, 0, 1000000)}
+      <label>🪤 Pièges cachés</label>${sw('ckTr', st.traps_on)}</div>
+      <div class="acts"><button class="btn" id="ckRules">💾 Enregistrer</button></div>`)}
+    ${sheet('⛏️ Matériaux', `<p class="note">Poids de chaque matériau (1 = normal, 2 = deux fois plus, 0 = jamais, 5 au maximum).</p><div class="fl">
+      ${['silex', 'fer', 'poudre', 'cristal'].map(k => `<label>${itemName(k)}</label>${num('ckMw_' + k, mw[k] ?? 1, 0, 5)}`).join('')}</div>
+      <div class="acts"><button class="btn" id="ckMat">💾 Enregistrer</button></div>`)}
+    ${sheet('🎉 Événements', `<div class="fl"><label>Événements automatiques<small>heures dorées et événements programmés</small></label>${sw('ckEvOn', ev.events_on)}</div>
+      ${ev.active ? `<p class="note">En cours : <b>${esc(ev.active.icon || '')} ${esc(ev.active.name || ev.active.kind || '')}</b>${ev.active.left ? ` · encore ${dur(ev.active.left)}` : ''}</p>` : ''}
+      <div class="frow"><select id="ckEvK" style="flex:1">${list.map(e => `<option value="${e.id}">${esc(e.icon || '')} ${esc(e.name)}</option>`).join('')}</select>${num('ckEvM', 30, 1, 1440, 80)}<span class="muted" style="align-self:center">min</span></div>
+      <div class="acts"><button class="btn" id="ckEvGo" ${list.length ? '' : 'disabled'}>▶️ Lancer maintenant</button></div>`)}
+    ${sheet('🌟 Défi du jour et 🎯 objectif de la semaine', `<div class="fl">
+      <label>Défi du jour</label>${sw('ckDyOn', st.daily_on)}<label>Récompense du défi (🪙)</label>${num('ckDyR', st.daily_reward, 0, 100000)}
+      <label>Objectif de la semaine (blocs)<small>0 = calculé automatiquement</small></label>${num('ckWkG', wk.auto ? 0 : wk.goal, 0, 100000000)}<label>Récompense de la semaine (🪙)</label>${num('ckWkR', wk.reward, 0, 100000)}</div>
+      <div class="acts"><button class="btn" id="ckDy">💾 Enregistrer</button><button class="btn ghost" id="ckDyRe">🎲 Tirer un autre défi</button></div>`)}
+    ${sheet('🎨 Thème du cube', `<div class="frow"><select id="ckTh" style="flex:1">${THEMES_G.map(([k, t]) => `<option value="${k}" ${st.theme === k ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+      <div class="acts"><button class="btn" id="ckThS">🎨 Appliquer</button></div><p class="note">« Ma photo » utilise la photo envoyée depuis le jeu.</p>`)}
+    ${sheet('🧊 Nouveau cube', `<p class="note">Termine la saison (médailles, lots distribués, cube archivé dans le Hall of fame) et lance un cube tout neuf. Les sacs repartent à zéro ; l’expérience, les médailles et les comptes sont gardés.</p>
+      <div class="frow"><select id="ckNcS" style="flex:1">${[30, 50, 80, 100, 128, 160, 200, 256].map(s => `<option value="${s}" ${s === st.size ? 'selected' : ''}>${s}³ · ${fmt(s ** 3)} blocs</option>`).join('')}</select></div>
+      <div class="acts"><button class="btn danger" id="ckNc">🧊 Lancer un nouveau cube</button></div>`)}
+  </div>`;
+  $('ckRules').onclick = async () => {
+    const h = Math.max(1, Math.min(100, n0('ckHp')));
+    if (!await act(() => rpc('admin_set_config', { p_max_hp: h, p_gold_every: n0('ckGe'), p_mat_every: n0('ckMe') }), '⚙️ Règles enregistrées')) return;
+    if (chk('ckTr') !== !!st.traps_on) await act(() => rpc('admin_set_traps', { p_on: chk('ckTr') }));
+    tell('reload', 'rules', { a: { h } }); reshow();
+  };
+  $('ckMat').onclick = async () => { const o = {}; for (const k of ['silex', 'fer', 'poudre', 'cristal']) o[k] = +$('ckMw_' + k).value; if (await act(() => rpc('admin_set_materials', { p: o }), '⛏️ Matériaux enregistrés')) tell('config', 'prices'); };
+  $('ckEvOn').onchange = async e => { if (await act(() => rpc('admin_set_events', { p_on: e.target.checked }), e.target.checked ? '🎉 Événements activés' : 'Événements désactivés')) tell('config', 'event'); };
+  $('ckEvGo').onclick = async () => { if (await act(() => rpc('admin_event_start', { p_id: +$('ckEvK').value, p_minutes: Math.max(1, n0('ckEvM')) }), '🎉 Événement lancé')) { tell('config', 'event'); reshow(); } };
+  $('ckDy').onclick = async () => {
+    if (!await act(() => rpc('admin_set_daily', { p_on: chk('ckDyOn'), p_reward: n0('ckDyR'), p_reroll: false }))) return;
+    if (await act(() => rpc('admin_set_week', { p_goal: n0('ckWkG'), p_reward: n0('ckWkR') }), '💾 Défis enregistrés')) { tell('config', 'week'); tell('config', 'daily'); }
+  };
+  $('ckDyRe').onclick = async () => { if (await act(() => rpc('admin_set_daily', { p_on: chk('ckDyOn'), p_reward: n0('ckDyR'), p_reroll: true }), '🎲 Nouveau défi tiré')) tell('config', 'daily'); };
+  $('ckThS').onclick = async () => { if (await act(() => rpc('admin_set_theme', { p_theme: $('ckTh').value }), '🎨 Thème appliqué')) tell('config', 'theme'); };
+  $('ckNc').onclick = async () => {
+    const s = +$('ckNcS').value;
+    if (!confirm(`Lancer un NOUVEAU cube ${s}³ ?\n\nLa partie en cours se termine : saison close, lots distribués, sacs remis à zéro.`)) return;
+    if (prompt('Pour confirmer, écris NOUVEAU') !== 'NOUVEAU') return ctoast('Annulé');
+    if (await act(() => rpc('admin_new_cube', { new_size: s }), `🧊 Nouveau cube ${s}³ lancé`)) { tell('reset'); reshow(); }
+  };
+}
+
+/* ---------- 💰 Économie ---------- */
+async function cEco() {
+  const st = await rpc('game_state'), rc = await rpc('admin_recipes'), ar = await rpc('admin_artifacts'), rules = await rpc('art_rules_state'), rb = await rpc('admin_robots').catch(() => null);
+  const shop = st.shop || {}, recs = rc.recipes || {};
+  const kinds = ar.kinds || {};
+  $('ckBody').innerHTML = `<div class="cgrid">
+    ${sheet('🏪 Prix de la boutique', `<p class="note">En pièces d’or · 0 = pas en vente. Les légendaires ne se vendent jamais.</p>
+      <div class="items">${ART_KINDS.filter(k => !['ecorce', 'oeil'].includes(k)).map(k => `<label>${itemName(k)}<input type="number" min="0" id="ckPr_${k}" value="${shop[k] ?? 0}"></label>`).join('')}</div>
+      <div class="acts"><button class="btn" id="ckPrS">💾 Enregistrer les prix</button></div>`, 'wide')}
+    ${sheet('⚖️ Artefacts puissants', `<p class="note">Temps de recharge entre deux utilisations et nombre maximum par jour (achat + atelier) pour les artefacts forts, très forts et légendaires.${rules.emerg ? ' <b>🚨 Freinage d’urgence du pilote en cours : strict.</b>' : ''}</p>
+      <div class="seg">${[['off', 'Libres'], ['modere', 'Modérés'], ['strict', 'Stricts']].map(([k, t]) => `<button type="button" data-lv="${k}" aria-pressed="${rules.level === k}">${t}</button>`).join('')}</div>
+      <p class="note">Modérés : forts 1 min et 10/jour · très forts 5 min et 3/jour · légendaires 30 min et 1 fabrication/jour.<br>Stricts : 3 min et 5/jour · 15 min et 1/jour · légendaires 1 h, aucune fabrication.</p>`)}
+    ${sheet('🎲 Artefacts cachés dans le cube', `<div class="tw" style="max-height:260px;overflow:auto"><table><tr><th class="l">Artefact</th><th>Cachés</th><th>Trouvés</th></tr>
+      ${Object.entries(kinds).sort((a, b) => b[1].hidden - a[1].hidden).map(([k, v]) => `<tr><td class="l">${itemName(k)}</td><td>${fmt(v.hidden)}</td><td>${fmt(v.found)}</td></tr>`).join('')}</table></div>
+      <div class="frow" style="margin-top:10px"><select id="ckAk" style="flex:1">${[...ART_KINDS, 'toile', 'lenteur', 'brouillard', 'macon', 'durci', 'pickpocket'].map(k => `<option value="${k}">${itemName(k)}</option>`).join('')}</select>${num('ckAq', 5, 1, 500, 80)}</div>
+      <div class="acts"><button class="btn small" id="ckAadd">➕ Cacher</button><button class="btn ghost small" id="ckArem">➖ Retirer</button></div>`)}
+    ${sheet('🛠️ Recettes de l’atelier', `<details><summary style="cursor:pointer;font-weight:600">Afficher les ${Object.keys(recs).length} recettes</summary><p class="note" style="margin-top:8px">Format : <span class="mono">fer: 4, or: 3</span> · l’interrupteur active ou désactive la recette · ↺ remet la recette d’origine</p>
+      ${Object.entries(recs).sort().map(([k, r]) => `<div class="prow"><div class="who"><b>${itemName(k)}</b><input class="tx" style="margin:4px 0 0" id="ckRc_${k}" value="${esc(bagTxt(r.ingredients))}"></div>
+        <div class="acts" style="margin:0">${sw('ckRe_' + k, r.enabled)}<button class="btn ghost small" data-rs="${k}" title="Recette d’origine">↺</button></div></div>`).join('')}
+      <div class="acts"><button class="btn" id="ckRcS">💾 Enregistrer les recettes</button></div></details>`, 'wide')}
+    ${rb ? sheet('🤖 Robots-mineurs', `<div class="fl"><label>Robots au travail en même temps (maximum)</label>${num('ckRbM', rb.max ?? 10, 1, 50)}</div>
+      ${(rb.active || []).length ? (rb.active || []).map(x => `<div class="prow"><div class="who"><b>${esc(x.pseudo || '?')}</b><small>${esc(x.icon || '🤖')} ${esc(x.name || '')} · encore ${dur(x.left || 0)}</small></div><button class="btn ghost small" data-rbs="${x.id}">⏹ Arrêter</button></div>`).join('') : '<p class="empty">Aucun robot au travail.</p>'}
+      <div class="acts"><button class="btn" id="ckRbS">💾 Enregistrer</button></div>`) : ''}
+  </div>`;
+  $('ckPrS').onclick = async () => {
+    const ch = ART_KINDS.filter(k => !['ecorce', 'oeil'].includes(k) && +$('ckPr_' + k).value !== (shop[k] ?? 0));
+    if (!ch.length) return ctoast('Aucun prix modifié');
+    if (await act(async () => { for (const k of ch) await rpc('admin_set_price', { p_kind: k, p_price: Math.max(0, Math.floor(+$('ckPr_' + k).value) || 0) }); return ch.length; }, n => `🏪 ${n} prix enregistré(s)`)) { tell('config', 'prices'); reshow(); }
+  };
+  $('ckBody').querySelectorAll('[data-lv]').forEach(b => b.onclick = async () => { if (await act(() => rpc('admin_set_art_rules', { p_level: b.dataset.lv }), '⚖️ Régulation enregistrée')) { tell('config', 'prices'); reshow(); } });
+  $('ckAadd').onclick = async () => { if (await act(() => rpc('admin_add_artifacts', { k: $('ckAk').value, cnt: Math.min(500, n0('ckAq')), min_layer: 0, max_layer: 999 }), n => `➕ ${n} caché(s)`)) { tell('config', 'arts'); reshow(); } };
+  $('ckArem').onclick = async () => { if (await act(() => rpc('admin_remove_artifacts', { k: $('ckAk').value, cnt: n0('ckAq') }), n => `➖ ${n} retiré(s)`)) { tell('config', 'arts'); reshow(); } };
+  $('ckRcS').onclick = async () => {
+    let n = 0;
+    const ok = await act(async () => { for (const [k, r] of Object.entries(recs)) {
+      const ing = parseBag($('ckRc_' + k).value), en = chk('ckRe_' + k);
+      if (JSON.stringify(Object.entries(ing).sort()) === JSON.stringify(Object.entries(r.ingredients || {}).sort()) && en === !!r.enabled) continue;
+      if (!Object.keys(ing).length) throw new Error(`Recette vide pour ${item(k)[1]}`);
+      await rpc('admin_set_recipe', { p_kind: k, p_ing: ing, p_enabled: en, p_reset: false }); n++;
+    } return n; }, c => `🛠️ ${c} recette(s) enregistrée(s)`);
+    if (ok) { tell('config', 'prices'); reshow(); }
+  };
+  $('ckBody').querySelectorAll('[data-rs]').forEach(b => b.onclick = async () => { if (await act(() => rpc('admin_set_recipe', { p_kind: b.dataset.rs, p_ing: null, p_enabled: null, p_reset: true }), '↺ Recette d’origine remise')) { tell('config', 'prices'); reshow(); } });
+  if ($('ckRbS')) $('ckRbS').onclick = async () => { if (await act(() => rpc('admin_robot_config', { p_max: n0('ckRbM') }), '🤖 Enregistré')) reshow(); };
+  $('ckBody').querySelectorAll('[data-rbs]').forEach(b => b.onclick = async () => { if (await act(() => rpc('admin_robot_stop', { p_id: +b.dataset.rbs }), '⏹ Robot arrêté')) reshow(); });
+}
+
+/* ---------- 🏆 Trésor et lots ---------- */
+const TREAS = [['noeud', 'Nœud doré'], ['trophee', 'Trophée'], ['coeur', 'Cœur de rubis'], ['etoile', 'Étoile d’or'], ['diamant', 'Diamant'], ['aucun', 'Aucun objet (texte ou photo)']];
+async function cTreasure() {
+  const st = await rpc('game_state'), t = (await rpc('get_treasure')) || {};
+  const locked = !!st.revealed, pod = t.prize_podium || [{}, {}], glob = t.prize_global || [{}, {}, {}];
+  const bagField = (id, o) => `<input class="tx" id="${id}" value="${esc(bagTxt(o))}" placeholder="or: 100, megabombe: 2">`;
+  $('ckBody').innerHTML = `<div class="cgrid">
+    ${sheet('🎁 Ce qui apparaît au centre', locked ? '<p class="note">Le trésor a été révélé : il ne peut plus être modifié.</p>' : `<p class="note">Secret pour les joueurs jusqu’au dernier bloc. La photo se choisit dans le jeu (👑).</p>
+      <div class="frow"><select id="ckTk" style="flex:1">${TREAS.map(([k, x]) => `<option value="${k}" ${t.kind === k ? 'selected' : ''}>${x}</option>`).join('')}</select></div>
+      <textarea class="tx" id="ckTm" maxlength="200" placeholder="Message gravé sur la plaque (facultatif)">${esc(t.message || '')}</textarea>
+      <p class="note">${t.image ? '✓ Une photo est choisie.' : 'Aucune photo.'}</p>
+      <div class="acts"><button class="btn" id="ckTs">💾 Enregistrer</button></div>`)}
+    ${sheet('🏆 Lots de fin de cube', `<p class="note">Objets donnés à la fin du cube. Format : <span class="mono">or: 100, megabombe: 2</span>. Noms : ${PRIZE_KINDS.join(', ')}.</p>
+      <label class="note">Gagnant</label>${bagField('ckPz0', t.prize)}
+      <div class="fl"><label>Le gagnant est</label><select id="ckPzR" class="wide"><option value="last" ${t.prize_rule !== 'top' ? 'selected' : ''}>celui qui casse le dernier bloc</option><option value="top" ${t.prize_rule === 'top' ? 'selected' : ''}>le meilleur casseur</option></select>
+        <label>Lots visibles par les joueurs</label>${sw('ckPzV', t.prize_visible !== false)}</div>
+      <label class="note">2ᵉ du classement</label>${bagField('ckPz1', pod[0])}<label class="note">3ᵉ du classement</label>${bagField('ckPz2', pod[1])}
+      <label class="note">🌍 Classement toutes saisons : 1ᵉʳ, 2ᵉ, 3ᵉ</label>${bagField('ckPg0', glob[0])}${bagField('ckPg1', glob[1])}${bagField('ckPg2', glob[2])}
+      <div class="acts"><button class="btn" id="ckPzS">💾 Enregistrer les lots</button></div>`)}
+  </div>`;
+  if ($('ckTs')) $('ckTs').onclick = () => act(() => rpc('set_treasure', { k: $('ckTk').value, msg: val('ckTm'), img: t.image || '' }), '🎁 Trésor enregistré');
+  $('ckPzS').onclick = async () => {
+    if (await act(async () => {
+      await rpc('admin_set_prize', { p_prize: parseBag(val('ckPz0')), p_rule: $('ckPzR').value, p_visible: chk('ckPzV'), p_podium: [parseBag(val('ckPz1')), parseBag(val('ckPz2'))] });
+      await rpc('admin_set_global_prize', { p: [parseBag(val('ckPg0')), parseBag(val('ckPg1')), parseBag(val('ckPg2'))] });
+    }, '🏆 Lots enregistrés')) { tell('config', 'prize'); reshow(); }
+  };
+}
+
+/* ---------- 🧭 Pilote ---------- */
+async function cPilot() {
+  const a = await adm('autopilot', {});
+  const pc = a.pace;
+  $('ckBody').innerHTML = `<div class="cgrid">${sheet(`🧭 Pilote automatique <span class="state ${a.on ? (a.emerg ? 'warn' : 'on') : ''}">${a.on ? (a.emerg ? '🚨 freinage d’urgence' : a.waiting ? 'en attente de joueurs' : 'en marche') : 'arrêté'}</span>`, a.on ? `
+      <dl class="kv">${kv([['Fin visée', dateTime(a.end)], ['Rythme', pc ? `${fmt(pc.rate)} blocs/j (il en faut ${fmt(pc.need)})` : 'mesure en cours'], ['Fin estimée', pc?.eta != null ? `${fmt(pc.eta)} j` : '—'],
+        ['Dernière heure', a.Rs != null ? `×${fmt1(a.Rs)} le rythme voulu` : '—'], ['Réglages faits', fmt(a.steps)], ['Prix et atelier', a.prices ? 'gérés' : 'non'], ['Freinage d’urgence', a.brake ? 'autorisé' : 'non']])}</dl>
+      <div class="fl" style="margin-top:12px"><label>Nouvelle durée (jours à partir de maintenant)</label>${num('ckApD', pc ? Math.max(1, Math.round(pc.daysLeft)) : a.days, 1, 3650)}</div>
+      <div class="acts"><button class="btn ghost" id="ckApC">🎯 Changer la durée</button><button class="btn ghost" id="ckApN">⚡ Régler maintenant</button>
+        <button class="btn danger" id="ckApS">⏹ Arrêter (garder les réglages)</button><button class="btn danger" id="ckApR">⏹ Arrêter et revenir aux réglages d’avant</button></div>` : `
+      <p class="note">Il garde la partie au bon rythme pour finir le cube à la date voulue : artefacts et coffres cachés, or, matériaux, et en option prix et atelier. Il n’agit que quand des joueurs sont connectés.</p>
+      <div class="fl"><label>Finir le cube dans (jours)</label>${num('ckApD', a.days || 30, 1, 3650)}
+        <label>Gérer aussi les prix et l’atelier</label>${sw('ckApP', a.prices)}
+        <label>🚨 Freinage d’urgence<small>réglages plus forts si la partie s’emballe</small></label>${sw('ckApB', a.brake !== false)}</div>
+      <div class="acts"><button class="btn" id="ckApGo">▶️ Lancer le pilote</button></div>`, 'wide')}
+    ${sheet('Journal du pilote', `<ul class="list">${li((a.log || []).slice(0, 15).map(l => [esc(l.txt), dateTime(l.at)]))}</ul>`, 'wide')}</div>`;
+  const start = (days, prices, brake, msg) => act(() => adm('autopilot', { op: 'start', days, prices, brake }), msg).then(r => r && reshow());
+  if ($('ckApGo')) $('ckApGo').onclick = () => start(Math.max(1, n0('ckApD')), chk('ckApP'), chk('ckApB'), '🧭 Pilote lancé');
+  if ($('ckApC')) {
+    $('ckApC').onclick = () => start(Math.max(1, n0('ckApD')), a.prices, a.brake, '🎯 Nouvelle date de fin');
+    $('ckApN').onclick = () => act(() => adm('autopilot', { op: 'now' }), '⚡ Réglage fait').then(r => r && reshow());
+    $('ckApS').onclick = () => act(() => adm('autopilot', { op: 'stop', restore: false }), '⏹ Pilote arrêté', 'Arrêter le pilote en gardant les réglages actuels ?').then(r => r && reshow());
+    $('ckApR').onclick = () => act(() => adm('autopilot', { op: 'stop', restore: true }), '⏹ Pilote arrêté, réglages d’avant remis', 'Arrêter le pilote et remettre les réglages d’avant son lancement ?').then(r => { if (r) { tell('config', 'eco'); reshow(); } });
+  }
+}
+
+/* ---------- 🎵 Musique ---------- */
+async function cMusic() {
+  const r = await post('/api/radio').catch(() => ({}));
+  const s = r.state || r, tracks = r.tracks || s.tracks || [];
+  const cur = tracks.find(t => t.id === s.id);
+  $('ckBody').innerHTML = `<div class="cgrid">${sheet('🎵 Radio du jeu', `<p class="note">${s.playing ? `▶️ En ce moment : <b>${esc(s.title || cur?.title || '?')}</b>` : '⏸ Rien ne passe en ce moment.'} · ${tracks.length} morceau(x). Pour ajouter des morceaux, passe par le jeu (👑 › Musique).</p>
+    <div class="acts"><button class="btn ghost" data-m="prev">⏮</button>${s.playing ? '<button class="btn" data-m="pause">⏸ Pause</button>' : '<button class="btn" data-m="resume">▶️ Lecture</button>'}<button class="btn ghost" data-m="next">⏭</button><button class="btn ghost" data-m="stop">⏹ Arrêter</button></div>
+    <div class="fl" style="margin-top:12px"><label>Enchaînement</label><select id="ckMm" class="wide">${[['all', 'Toute la liste en boucle'], ['shuffle', 'Au hasard'], ['one', 'Répéter le morceau'], ['once', 'Une fois puis stop']].map(([k, t]) => `<option value="${k}" ${s.mode === k ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+    ${tracks.length ? `<ul class="list">${tracks.map(t => `<li><span>${t.id === s.id ? '🔊 ' : ''}${esc(t.title)}</span><span><button class="btn ghost small" data-play="${esc(t.id)}">▶️</button></span></li>`).join('')}</ul>` : ''}`, 'wide')}</div>`;
+  const music = (body, msg) => act(() => adm('music', body), msg).then(x => x && reshow());
+  $('ckBody').querySelectorAll('[data-m]').forEach(b => b.onclick = () => music({ action: b.dataset.m }));
+  $('ckBody').querySelectorAll('[data-play]').forEach(b => b.onclick = () => music({ action: 'play', id: b.dataset.play }, '▶️ Lecture'));
+  $('ckMm').onchange = e => music({ action: 'mode', mode: e.target.value }, 'Enchaînement changé');
+}
+
+/* ---------- ✉️ E-mails et public ---------- */
+async function cPublic() {
+  const c = await adm('public-settings');
+  const ab = c.aboutCfg || {};
+  $('ckBody').innerHTML = `<div class="cgrid">
+    ${sheet(`✉️ E-mails <span class="state ${c.ready ? 'on' : ''}">${c.ready ? 'prêts' : 'pas réglés'}</span>`, `<p class="note">Code à l’inscription et « Mot de passe oublié ? ». ${c.ready ? `${c.sentToday} envoyé(s) aujourd’hui.` : ''}</p><div class="fl">
+      <label>Service d’envoi</label><select id="ckEp" class="wide"><option value="">Aucun</option><option value="brevo" ${c.provider === 'brevo' ? 'selected' : ''}>Brevo</option><option value="resend" ${c.provider === 'resend' ? 'selected' : ''}>Resend</option></select>
+      <label>Clé d’API<small>${c.hasKey ? `enregistrée (…${esc(c.keyEnd)}) · laisser vide pour la garder` : 'aucune'}</small></label><input type="text" id="ckEk" class="wide" autocomplete="off">
+      <label>Adresse d’envoi</label><input type="text" id="ckEf" class="wide" value="${esc(c.from || '')}">
+      <label>Nom de l’expéditeur</label><input type="text" id="ckEn" class="wide" value="${esc(c.senderName || 'Le Cube')}">
+      <label>Code obligatoire à l’inscription</label>${sw('ckEv', c.verifyWanted)}<label>« Mot de passe oublié ? »</label>${sw('ckEr', c.resetWanted)}</div>
+      <div class="frow"><input class="search" id="ckEt" placeholder="ton adresse pour un test"><button class="btn ghost small" id="ckEtB" ${c.ready ? '' : 'disabled'}>✉️ Tester</button></div>`)}
+    ${sheet('🔒 Confidentialité et ℹ️ À propos', `<div class="fl">
+      <label>Fiches des appareils</label><select id="ckDv" class="wide">${[['full', 'Complètes'], ['basic', 'Basiques (sans ville ni IP)'], ['off', 'Aucune']].map(([k, t]) => `<option value="${k}" ${c.devices === k ? 'selected' : ''}>${t}</option>`).join('')}</select>
+      <label>Contact sur la page Confidentialité</label><input type="text" id="ckCt" class="wide" value="${esc(c.contact || '')}">
+      <label>Bouton « À propos »</label>${sw('ckAbOn', ab.on)}
+      <label>Nom</label><input type="text" id="ckAbN" class="wide" value="${esc(ab.name || '')}"><label>E-mail de contact</label><input type="text" id="ckAbE" class="wide" value="${esc(ab.email || '')}">
+      <label>Lien GitHub</label><input type="text" id="ckAbG" class="wide" value="${esc(ab.github || '')}"><label>Lien Ko-fi</label><input type="text" id="ckAbK" class="wide" value="${esc(ab.kofi || '')}"></div>
+      <p class="note"><a href="/confidentialite" target="_blank" rel="noopener">Voir la page Confidentialité</a></p>`)}
+    <div class="wide"><div class="acts"><button class="btn" id="ckPubS">💾 Enregistrer tout</button></div></div>
+  </div>`;
+  $('ckPubS').onclick = async () => {
+    const set = { email: { provider: $('ckEp').value, from: val('ckEf'), name: val('ckEn'), verify: chk('ckEv'), reset: chk('ckEr') }, devices: $('ckDv').value, contact: val('ckCt'),
+      about: { on: chk('ckAbOn'), name: val('ckAbN'), email: val('ckAbE'), github: val('ckAbG'), kofi: val('ckAbK') } };
+    if (val('ckEk')) set.email.key = val('ckEk');
+    if (await act(() => adm('public-settings', { set }), '💾 Réglages enregistrés')) reshow();
+  };
+  $('ckEtB').onclick = () => act(() => adm('mail-test', { to: val('ckEt') }), '✉️ E-mail de test envoyé : regarde ta boîte (et les spams)');
+}
+</script>
+
 </body>
 </html>

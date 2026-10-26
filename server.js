@@ -42,7 +42,7 @@ const VAPID_FILE = path.join(STATE, 'notifications-cles.json');         // clés
 const REPLAY_DIR = path.join(STATE, 'rejeux');
 const PHOTO_FILE = path.join(STATE, 'photo-du-cube.jpg');                // 🖼️ photo du thème « Ma photo »                          // 🎬 films des cubes (les 6 derniers)
 const KEEP_BACKUPS = 10;
-const GAME_VERSION = '15.8';
+const GAME_VERSION = '15.9';
 const UPDATE_NOTE = 'Nouveaux bruitages au choix dans ⚙️ › Son : sons d’origine du jeu ou pack de l’organisateur.';
 const PREV_DIR = path.join(STATE, 'version-precedente');                // 📦 copie de la version d'avant une mise à jour
 const UPDATE_FLAG = path.join(STATE, 'mise-a-jour-en-cours.json');
@@ -1778,6 +1778,16 @@ const server = http.createServer(async (req, res) => {
         const r = await vacuum();
         if (!r) return send(res, 500, { error: 'Optimisation impossible (voir la fenêtre du serveur)' });
         return send(res, 200, r);
+      }
+      if (action === 'broadcast') {                   // 🎛️ tableau de bord : prévenir les joueurs connectés d'un changement de réglage
+        const t = String(body.type || '');
+        if (!['config', 'reload', 'reset'].includes(t)) return send(res, 400, { error: 'Type inconnu' });
+        const out = { type: t };
+        if (body.f) out.f = String(body.f).replace(/[^a-z_]/g, '').slice(0, 20);
+        if (body.a && typeof body.a === 'object') out.a = { h: Math.max(1, Math.min(100, +body.a.h || 0)) || undefined };
+        if (t === 'reload') { out.text = String(body.text || '').slice(0, 120) || undefined; out.delay = 2500; }
+        broadcastAll(out);
+        return send(res, 200, { ok: true, n: clients.size });
       }
       if (action === 'kick-socket') {            // couper la connexion d'un joueur (sans le bannir)
         const uid = String(body.user_id || '');
