@@ -42,7 +42,7 @@ const VAPID_FILE = path.join(STATE, 'notifications-cles.json');         // clés
 const REPLAY_DIR = path.join(STATE, 'rejeux');
 const PHOTO_FILE = path.join(STATE, 'photo-du-cube.jpg');                // 🖼️ photo du thème « Ma photo »                          // 🎬 films des cubes (les 6 derniers)
 const KEEP_BACKUPS = 10;
-const GAME_VERSION = '15.9';
+const GAME_VERSION = '16.0';
 const UPDATE_NOTE = 'Nouveaux bruitages au choix dans ⚙️ › Son : sons d’origine du jeu ou pack de l’organisateur.';
 const PREV_DIR = path.join(STATE, 'version-precedente');                // 📦 copie de la version d'avant une mise à jour
 const UPDATE_FLAG = path.join(STATE, 'mise-a-jour-en-cours.json');
@@ -1827,6 +1827,17 @@ const server = http.createServer(async (req, res) => {
           'Content-Disposition': `attachment; filename="le-cube-${pick.name}"`, 'Cache-Control': 'no-store' });
         return fs.createReadStream(path.join(BACKUPS, pick.name)).pipe(res);
       }
+      if (action === 'cloudflared-info') {
+        return send(res, 200, { shared: INSTANCE.tunnel === false, platform: process.platform, version: cfVer, required: CF_REQUIRED,
+          outdated: cfVer ? cfCmp(cfVer, CF_REQUIRED) < 0 : null, canAuto: INSTANCE.tunnel !== false && !!cfAsset(), update: cfUp });
+      }
+      if (action === 'cloudflared-update') {
+        if (cfUp.running) return send(res, 409, { error: 'Une mise à jour est déjà en cours' });
+        if (INSTANCE.tunnel === false) return send(res, 400, { error: 'Ce serveur passe par le tunnel du premier serveur : rien à mettre à jour ici' });
+        if (!cfAsset()) return send(res, 400, { error: 'Mise à jour automatique indisponible sur ce système (à faire à la main sur macOS)' });
+        cfUpdate().catch(e => noteError('cloudflared', e.message));
+        return send(res, 200, { started: true });
+      }
       if (action === 'tunnel-token') {
         const raw = String(body.token || '');
         if (!raw.trim()) { fs.rmSync(TOKEN_FILE, { force: true }); log('Jeton de tunnel retiré depuis 👑'); }
@@ -2849,11 +2860,118 @@ function startTunnel() {
   proc.stderr.on('data', onData);
   proc.on('exit', code => {
     tunnelOk = false; tunnelSince = null;
-    if (!stopping) { log('Tunnel arrêté (code ' + code + '), relance dans 10 s…'); noteError('tunnel', 'arrêté (code ' + code + ')'); setTimeout(startTunnel, 10000); }
+    if (!stopping && !tunnelSwapping) { log('Tunnel arrêté (code ' + code + '), relance dans 10 s…'); noteError('tunnel', 'arrêté (code ' + code + ')'); setTimeout(startTunnel, 10000); }
   });
   tunnelProc = proc;
 }
 let tunnelProc = null, stopping = false;
+let tunnelSwapping = false;
+
+// ---------- 🔄 Mise à jour de cloudflared (le tunnel) à distance, depuis le tableau de bord ----------
+// Sécurité : si la nouvelle version ne se reconnecte pas, l'ancienne est remise automatiquement,
+// pour ne jamais perdre l'accès à distance au serveur.
+const CF_REQUIRED = '2026.10.2';                                 // version minimale corrigée (faille eMudhra d'octobre 2026)
+const cfBin = () => path.join(DIR, process.platform === 'win32' ? 'cloudflared.exe' : 'cloudflared');
+function cfAsset() {
+  const a = process.arch === 'arm64' ? 'arm64' : 'amd64';
+  if (process.platform === 'win32') return `cloudflared-windows-${a}.exe`;
+  if (process.platform === 'linux') return `cloudflared-linux-${a}`;
+  return null;                                                    // macOS : archive .tgz, mise à jour à faire à la main
+}
+function cfVersion(binPath) {
+  return new Promise(ok => {
+    let out = '';
+    try {
+      const pr = spawn(binPath, ['--version'], { windowsHide: true });
+      pr.stdout.on('data', d => out += d); pr.stderr.on('data', d => out += d);
+      pr.on('error', () => ok(null));
+      pr.on('exit', () => ok((out.match(/cloudflared version ([0-9][0-9.]*)/i) || [])[1] || null));
+      setTimeout(() => { try { pr.kill(); } catch (e) {} ok((out.match(/cloudflared version ([0-9][0-9.]*)/i) || [])[1] || null); }, 8000);
+    } catch (e) { ok(null); }
+  });
+}
+const cfCmp = (a, b) => {                                         // compare « 2026.10.1 » et « 2026.10.2 »
+  const pa = String(a || '').split('.').map(Number), pb = String(b || '').split('.').map(Number);
+  for (let k = 0; k < Math.max(pa.length, pb.length); k++) { const x = pa[k] || 0, y = pb[k] || 0; if (x !== y) return x < y ? -1 : 1; }
+  return 0;
+};
+let cfVer = null;                                                 // version locale, mise en cache
+async function cfRefreshVersion() { if (INSTANCE.tunnel === false) return null; cfVer = await cfVersion(cfBin()).catch(() => null); return cfVer; }
+let cfUp = { running: false, phase: '', from: null, to: null, result: '', error: '', at: 0 };
+const cfPhase = (phase) => { cfUp.phase = phase; cfUp.at = Date.now(); log('🔄 cloudflared : ' + phase); };
+function cfWaitConnected(ms) {                                    // attend que le tunnel soit vraiment relié à Cloudflare
+  return new Promise(ok => { const t0 = Date.now(); const h = setInterval(() => { if (tunnelOk || Date.now() - t0 > ms) { clearInterval(h); ok(tunnelOk); } }, 1000); });
+}
+const wait = ms => new Promise(ok => setTimeout(ok, ms));
+async function cfStopTunnel() {                                  // arrêt FORCÉ et immédiat : cloudflared ne garde pas son délai de grâce (sinon le fichier reste verrouillé)
+  const pr = tunnelProc; if (!pr) return;
+  await new Promise(ok => { let done = false; const fin = () => { if (!done) { done = true; ok(); } };
+    pr.on('exit', fin); try { pr.kill('SIGKILL'); } catch (e) { fin(); }
+    setTimeout(() => { try { pr.kill('SIGKILL'); } catch (e) {} }, 2000); setTimeout(fin, 12000); });
+  tunnelProc = null;
+  await wait(500);                                               // laisse le système libérer le fichier (surtout sous Windows)
+}
+// remplace le binaire en déplaçant les fichiers (renommage) plutôt qu'en écrivant par-dessus :
+// un programme en cours d'exécution ne peut pas être écrasé (ni sous Linux, ni sous Windows), mais il peut être renommé.
+async function cfMoveInto(src, dst, aside) {                     // met `dst` de côté (sous `aside`) puis `src` à la place de `dst`
+  for (let k = 0; k < 8; k++) {
+    try {
+      if (aside) { try { fs.rmSync(aside, { force: true }); } catch (e) {} if (fs.existsSync(dst)) fs.renameSync(dst, aside); }
+      else fs.rmSync(dst, { force: true });
+      fs.renameSync(src, dst);
+      return;
+    } catch (e) { if (k === 7) throw e; await wait(1000); }
+  }
+}
+async function cfUpdate() {
+  if (cfUp.running) throw new Error('Une mise a jour est deja en cours');
+  if (INSTANCE.tunnel === false) throw new Error('Ce serveur passe par le tunnel du premier serveur');
+  const asset = cfAsset();
+  if (!asset) throw new Error('Mise a jour automatique indisponible sur ce systeme');
+  const bin = cfBin(), tmp = bin + '.nouveau', old = bin + '.ancien';
+  cfUp = { running: true, phase: '', from: cfVer, to: null, result: '', error: '', at: Date.now() };
+  try {
+    cfPhase('téléchargement de la dernière version…');
+    const url = 'https://github.com/cloudflare/cloudflared/releases/latest/download/' + asset;
+    const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 180000);
+    let buf;
+    try { const r = await fetch(url, { signal: ctl.signal, redirect: 'follow' }); if (!r.ok) throw new Error('téléchargement refusé (' + r.status + ')'); buf = Buffer.from(await r.arrayBuffer()); }
+    finally { clearTimeout(timer); }
+    if (buf.length < 5e6) throw new Error('fichier téléchargé trop petit : téléchargement incomplet');
+    const magicOk = process.platform === 'win32' ? (buf[0] === 0x4d && buf[1] === 0x5a) : (buf[0] === 0x7f && buf.toString('latin1', 1, 4) === 'ELF');
+    if (!magicOk) throw new Error('le fichier téléchargé n’est pas un programme valide');
+    fs.writeFileSync(tmp, buf); if (process.platform !== 'win32') fs.chmodSync(tmp, 0o755);
+    cfPhase('vérification du nouveau programme…');
+    const newVer = await cfVersion(tmp);
+    if (!newVer) { fs.rmSync(tmp, { force: true }); throw new Error('le programme téléchargé ne démarre pas : rien n’a été changé'); }
+    cfUp.to = newVer;
+    if (cfVer && cfCmp(newVer, cfVer) < 0) { fs.rmSync(tmp, { force: true }); throw new Error(`la version proposée (${newVer}) est plus ancienne que l’actuelle (${cfVer})`); }
+    tunnelSwapping = true;
+    cfPhase('remplacement et redémarrage du tunnel…');
+    await cfStopTunnel();
+    await cfMoveInto(tmp, bin, old);                            // l'ancien part sous .ancien, le nouveau prend sa place
+    tunnelSwapping = false; startTunnel();
+    cfPhase('reconnexion à Cloudflare…');
+    if (await cfWaitConnected(90000)) {
+      cfVer = newVer; cfUp.result = 'ok'; cfPhase(`✅ cloudflared mis à jour en ${newVer}`);
+      try { fs.rmSync(old, { force: true }); } catch (e) {}
+      notifyAdmins({ type: '__presalert', kind: 'cf', title: '🔄 Tunnel mis à jour', body: `cloudflared ${newVer} · tunnel reconnecté` });
+    } else {
+      cfPhase('⚠️ la nouvelle version ne se reconnecte pas : retour à l’ancienne…');
+      tunnelSwapping = true; await cfStopTunnel();
+      try { await cfMoveInto(old, bin, bin + '.rejete'); fs.rmSync(bin + '.rejete', { force: true }); } catch (e) { noteError('cloudflared retour', e.message); }
+      tunnelSwapping = false; startTunnel(); await cfWaitConnected(90000);
+      cfVer = await cfVersion(bin).catch(() => cfVer);
+      cfUp.result = 'rollback'; cfUp.error = 'La nouvelle version ne s’est pas reconnectée : l’ancienne a été remise.'; cfPhase('↩️ ancienne version remise, tunnel reconnecté');
+    }
+  } catch (e) {
+    tunnelSwapping = false;
+    try { fs.rmSync(tmp, { force: true }); } catch (x) {}
+    if (!tunnelOk) { try { startTunnel(); } catch (x) {} }
+    cfUp.result = 'error'; cfUp.error = e.message; cfPhase('⚠️ échec : ' + e.message);
+  } finally { cfUp.running = false; }
+}
+
 
 // ---------- 🤖 Robots-mineurs : c'est le serveur qui les fait travailler, toutes les 2 secondes ----------
 // Chaque robot regroupe ses coups (1 seul passage par la base toutes les 2 s) : très léger pour le PC.
@@ -3556,6 +3674,7 @@ server.listen(PORT, HOST, () => {
     for (const a of list || []) if (a.family === 'IPv4' && !a.internal) log(`Depuis un appareil de la maison (même Wi-Fi) : http://${a.address}:${PORT}`);
   startTunnel();
   startStatusPage();
+  setTimeout(() => cfRefreshVersion().catch(() => {}), 8000);
   setTimeout(() => gridBuild().catch(e => noteError('cube en mémoire', e.message)), 3000);
   if (!process.env.LECUBE_DATA) console.log('Laisse cette fenêtre ouverte tant que le jeu doit être accessible.\n');
 });

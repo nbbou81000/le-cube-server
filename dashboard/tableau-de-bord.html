@@ -1284,6 +1284,7 @@ async function cServer() {
     <div class="acts"><button class="btn small ghost" id="ckBk">💾 Sauvegarder maintenant</button><button class="btn small ghost" id="ckDl">⬇️ Télécharger la dernière</button></div>`)}
     ${sheet('Marche / arrêt', `<p class="note">« Redémarrer » relance le jeu en quelques secondes. « Éteindre » l’arrête pour de bon : il ne redémarre pas tout seul, il faudra relancer 2-DEMARRER.bat sur le PC (ou redémarrer le PC si le démarrage auto est activé).</p>
       <div class="acts"><button class="btn ghost" id="ckRestart">🔄 Redémarrer le serveur</button><button class="btn danger" id="ckOff">⏻ Éteindre le serveur</button></div>`)}
+    <div class="wide" id="ckCf"></div>
     ${sheet('📣 Message à tous les joueurs', `<p class="note">Affiché dans le jeu et envoyé en notification sur les téléphones.</p>
       <input class="tx" id="ckNtT" maxlength="80" placeholder="Titre (facultatif)"><textarea class="tx" id="ckNtB" maxlength="300" placeholder="Ton message…"></textarea>
       <div class="acts"><button class="btn" id="ckNt">📣 Envoyer</button></div>`)}
@@ -1328,6 +1329,46 @@ async function cServer() {
   if ($('ckUpBack')) $('ckUpBack').onclick = () => act(() => adm('update-rollback'), '↩️ Retour à la version d’avant : le serveur redémarre', 'Remettre la version précédente du jeu ? La partie n’est pas touchée.');
   $('ckLt').onclick = async () => { if (await act(() => adm('load-test', { steps: [20, 40, 60, 80], seconds: 20 }), '🧪 Test lancé', 'Lancer le test de capacité (environ 1 min 30) ?')) pollLt(); };
   if (lt?.running) pollLt();
+  renderCf();
+}
+// 🔄 Tunnel (cloudflared) : version + bouton de mise à jour à distance, avec reprise auto
+async function renderCf() {
+  const box = $('ckCf'); if (!box) return;
+  let c; try { c = await adm('cloudflared-info'); } catch (e) { box.innerHTML = ''; return; }
+  if (c.shared) { box.innerHTML = sheet('🔄 Tunnel (cloudflared)', `<p class="note">Ce serveur passe par le tunnel du premier serveur : la mise à jour de cloudflared se fait sur le premier serveur.</p>`); return; }
+  const up = c.update || {};
+  const running = up.running;
+  const line = c.version ? `Version installée : <b>${esc(c.version)}</b>${c.outdated ? ` · <span class="state warn">à mettre à jour (faille eMudhra)</span>` : ` · <span class="state on">à jour</span>`}`
+    : `<span class="note">Version inconnue (cloudflared n’a pas répondu).</span>`;
+  const phase = running ? `<p class="note">⏳ ${esc(up.phase || 'en cours…')}<br>Le tunnel va se couper quelques instants : cette page se reconnectera toute seule. Ne ferme pas cette page.</p>`
+    : up.result === 'ok' ? `<p class="note" style="color:var(--sage)">✅ Mis à jour en ${esc(up.to || '')}. Tunnel reconnecté.</p>`
+    : up.result === 'rollback' ? `<p class="note" style="color:var(--accent-ink)">↩️ La nouvelle version ne se reconnectait pas : l’ancienne a été remise automatiquement, le tunnel fonctionne. Réessaie plus tard ou mets à jour depuis le PC.</p>`
+    : up.result === 'error' ? `<p class="note" style="color:var(--accent-ink)">⚠️ ${esc(up.error || 'échec')}. Le tunnel actuel n’a pas été touché.</p>` : '';
+  box.innerHTML = sheet('🔄 Tunnel (cloudflared)', `<p class="note">cloudflared relie ton serveur à Internet via Cloudflare. ${c.outdated ? 'Une faille connue (certificats eMudhra, octobre 2026) impose de passer à une version récente.' : 'Garde-le à jour pour la sécurité.'}</p>
+    <p>${line}</p>${phase}
+    <div class="acts"><button class="btn ${c.outdated ? '' : 'ghost'}" id="ckCfGo" ${running || !c.canAuto ? 'disabled' : ''}>🔄 ${running ? 'Mise à jour en cours…' : 'Mettre à jour maintenant'}</button></div>
+    ${c.canAuto ? '' : '<p class="note">Mise à jour automatique indisponible ici : à faire à la main sur le PC.</p>'}`);
+  if ($('ckCfGo')) $('ckCfGo').onclick = async () => {
+    if (!confirm('Mettre à jour cloudflared maintenant ?\n\nLe tunnel se coupe quelques instants (les joueurs se reconnectent tout seuls). Si la nouvelle version ne marche pas, l’ancienne est remise automatiquement : tu ne perdras pas l’accès.')) return;
+    if (!await act(() => adm('cloudflared-update'), '🔄 Mise à jour lancée…')) return;
+    cfPoll();
+  };
+  if (running) cfPoll();
+}
+let cfPollT = null, cfFails = 0;
+function cfPoll() {
+  clearTimeout(cfPollT);
+  const tick = async () => {
+    let c = null; try { c = await adm('cloudflared-info'); cfFails = 0; } catch (e) { cfFails++; }
+    if (!$('ckCf') || CTL.tab !== 'serveur') return;
+    if (!c) {                                   // le tunnel est coupé pendant le remplacement : on patiente et on réessaie
+      $('ckCf').innerHTML = sheet('🔄 Tunnel (cloudflared)', `<p class="note">⏳ Le tunnel redémarre, reconnexion en cours… (tentative ${cfFails})<br>C’est normal pendant la mise à jour. Ne ferme pas cette page.</p>`);
+      cfPollT = setTimeout(tick, 4000); return;
+    }
+    if (c.update && c.update.running) { renderCf(); cfPollT = setTimeout(tick, 4000); return; }
+    renderCf();                                 // terminé : affiche le résultat final
+  };
+  cfPollT = setTimeout(tick, 4000);
 }
 function ltTable(t) {
   const rows = t?.results || [];

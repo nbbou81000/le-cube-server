@@ -53,6 +53,7 @@ This repository lets you **run your own copy on your own computer**: an old lapt
 - Game rules, prices, recipes, events, announcements, music radio (upload your MP3/M4A), custom sound pack (WAV).
 - An **autopilot** 🧭 that keeps the game at the right pace for a target end date.
 - Server health (CPU, memory, traffic, players) with live charts, a built-in load test.
+- **Update cloudflared from your phone** 🔄: the Control tab can download the latest cloudflared (the tunnel) and restart it without touching the PC; if the new version fails to reconnect, the previous one is restored automatically so remote access is never lost.
 - **Overload protection** 🔥: if the PC stays overloaded (CPU, game lag or memory above your thresholds for a couple of minutes), the game pauses for players with an apology message and automatic reconnection, and you get a phone notification.
 - Nightly backups, one-click **rescue copy** of everything, and **updates from a zip** (even from your phone).
 - An optional **admin dashboard** web page (stats, economy, security log, devices, read-only database explorer).
