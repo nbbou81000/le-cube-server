@@ -1567,7 +1567,7 @@ begin
   dl := public._daily_track(nd, depths, loots, jsonb_array_length(coalesce(chests, '[]'::jsonb)), 1, 0);
   if dl is not null then msgs := coalesce(msgs, '{}') || dl; end if;
   if nd + npeel > 0 then
-    update public.game as gm set destroyed = gm.destroyed + nd + npeel where gm.id = 1;
+    update public.game as gm set destroyed = gm.destroyed + nd + npeel, peel_total = gm.peel_total + npeel where gm.id = 1;   -- npeel = 0 sauf pour l'Écorce du Monde
     perform public._maybe_reveal(uid);
     wk := public._week_check();
     if wk is not null then msgs := coalesce(msgs, '{}') || wk; end if;
@@ -1611,45 +1611,69 @@ $$;
 -- ⚖️ Régulation des artefacts puissants (version 15.8) : temps de recharge à l'utilisation, quota par jour à l'achat et à la fabrication.
 --    game.art_rules = { "level": "off" | "modere" | "strict", "emerg": true/false (freinage d'urgence du pilote : passe en strict) }
 alter table public.game add column if not exists art_rules jsonb not null default '{}'::jsonb;
+alter table public.game add column if not exists peel_total bigint not null default 0;  -- blocs retirés par l'Écorce (exclus du calcul du rythme : ce ne sont pas des blocs minés)
 create table if not exists public.art_use (player uuid not null references public.profiles(id) on delete cascade, kind text not null, at timestamptz not null default now(), primary key (player, kind));
 create table if not exists public.art_get (player uuid not null references public.profiles(id) on delete cascade, day date not null, tier text not null, n int not null default 0, primary key (player, day, tier));
+-- usage et acquisition par joueur et par jour (version 16.1) : « used » = utilisations, « got » = achetés + fabriqués
+create table if not exists public.art_day (player uuid not null references public.profiles(id) on delete cascade, day date not null, tier text not null, used int not null default 0, got int not null default 0, primary key (player, day, tier));
 alter table public.art_use enable row level security;
 alter table public.art_get enable row level security;
-revoke all on public.art_use, public.art_get from anon, authenticated;
+alter table public.art_day enable row level security;
+revoke all on public.art_use, public.art_get, public.art_day from anon, authenticated;
 create or replace function public._art_tier(k text) returns text
 language sql immutable as $$
   select case when k in ('ecorce', 'oeil') then 'legend'
               when k in ('megabombe', 'chaine', 'tornade', 'pilier') then 'tres'
               when k in ('seisme', 'vrille', 'grappe', 'givre', 'cor', 'marteau') then 'fort' end;
 $$;
+-- niveau « effectif » : le freinage d'urgence du pilote impose « strict » par-dessus le réglage choisi
 create or replace function public._art_level() returns text
 language sql stable security definer set search_path = public as $$
-  select case when coalesce((art_rules->>'emerg')::boolean, false) and coalesce(art_rules->>'level', 'off') <> 'off' then 'strict'
-              when coalesce((art_rules->>'emerg')::boolean, false) then 'modere'
+  select case when coalesce((art_rules->>'emerg')::boolean, false) and coalesce(nullif(art_rules->>'level', ''), 'off') <> 'off' then 'strict'
               else coalesce(nullif(art_rules->>'level', ''), 'off') end from public.game where id = 1;
 $$;
--- { cd: secondes de recharge par joueur, cap: nombre par jour (achat + fabrication) }
+-- Règle par niveau et par catégorie : { cd: recharge (s) par joueur, use_p: utilisations/joueur/jour, use_s: utilisations/serveur/jour, get: achetés+fabriqués/joueur/jour }
+-- Pour use_p, use_s et get : 0 = pas de limite.
 create or replace function public._art_rule(lvl text, tier text) returns jsonb
-language sql immutable as $$
-  select case lvl
-    when 'modere' then case tier when 'fort' then '{"cd": 60, "cap": 10}' when 'tres' then '{"cd": 300, "cap": 3}' when 'legend' then '{"cd": 1800, "cap": 1}' end
-    when 'strict' then case tier when 'fort' then '{"cd": 180, "cap": 5}' when 'tres' then '{"cd": 900, "cap": 1}' when 'legend' then '{"cd": 3600, "cap": 0}' end
-  end::jsonb;
+language sql stable security definer set search_path = public as $$
+  select case
+    when lvl = 'custom' then (
+      select jsonb_build_object(
+        'cd',    coalesce((c->>'cd')::int, 0), 'use_p', coalesce((c->>'use_p')::int, 0),
+        'use_s', coalesce((c->>'use_s')::int, 0), 'get', coalesce((c->>'get')::int, 0))
+      from (select art_rules->'custom'->tier c from public.game where id = 1) q)
+    when lvl = 'modere' then case tier when 'fort' then '{"cd": 60, "use_p": 0, "use_s": 0, "get": 10}' when 'tres' then '{"cd": 300, "use_p": 0, "use_s": 0, "get": 3}' when 'legend' then '{"cd": 1800, "use_p": 0, "use_s": 0, "get": 1}' end::jsonb
+    when lvl = 'strict' then case tier when 'fort' then '{"cd": 180, "use_p": 0, "use_s": 0, "get": 5}' when 'tres' then '{"cd": 900, "use_p": 3, "use_s": 8, "get": 1}' when 'legend' then '{"cd": 3600, "use_p": 1, "use_s": 3, "get": 1}' end::jsonb
+  end;
 $$;
 create or replace function public._art_check_use(uid uuid, k text) returns void
 language plpgsql security definer set search_path = public as $$
-declare t text := public._art_tier(k); lvl text; r jsonb; last timestamptz; left_s int;
+declare t text := public._art_tier(k); lvl text; r jsonb; last timestamptz; left_s int; cd int; up int; us int; mine int; svr int;
 begin
   if t is null then return; end if;
   lvl := public._art_level(); if lvl = 'off' then return; end if;
   r := public._art_rule(lvl, t); if r is null then return; end if;
-  select at into last from public.art_use where player = uid and kind = k;
-  if last is not null and last > now() - make_interval(secs => (r->>'cd')::int) then
-    left_s := ceil(extract(epoch from last + make_interval(secs => (r->>'cd')::int) - now()))::int;
-    if left_s >= 60 then raise exception 'Cet artefact se recharge : encore % min', ceil(left_s / 60.0)::int;
-    else raise exception 'Cet artefact se recharge : encore % s', left_s; end if;
+  cd := coalesce((r->>'cd')::int, 0); up := coalesce((r->>'use_p')::int, 0); us := coalesce((r->>'use_s')::int, 0);
+  if cd > 0 then
+    select at into last from public.art_use where player = uid and kind = k;
+    if last is not null and last > now() - make_interval(secs => cd) then
+      left_s := ceil(extract(epoch from last + make_interval(secs => cd) - now()))::int;
+      if left_s >= 60 then raise exception 'Cet artefact se recharge : encore % min', ceil(left_s / 60.0)::int;
+      else raise exception 'Cet artefact se recharge : encore % s', left_s; end if;
+    end if;
+  end if;
+  if up > 0 then
+    select coalesce(used, 0) into mine from public.art_day where player = uid and day = current_date and tier = t;
+    if coalesce(mine, 0) >= up then raise exception 'Ta limite du jour pour ce niveau d''artefact est atteinte (% par jour)', up; end if;
+  end if;
+  if us > 0 then
+    select coalesce(sum(used), 0) into svr from public.art_day where day = current_date and tier = t;
+    if coalesce(svr, 0) >= us then raise exception 'Limite du serveur atteinte pour ce niveau d''artefact aujourd''hui (% par jour) : réessaie demain', us; end if;
   end if;
   insert into public.art_use (player, kind, at) values (uid, k, now()) on conflict (player, kind) do update set at = now();
+  insert into public.art_day (player, day, tier, used) values (uid, current_date, t, 1)
+    on conflict (player, day, tier) do update set used = public.art_day.used + 1;
+  delete from public.art_day where day < current_date - 2;
 end $$;
 create or replace function public._art_check_get(uid uuid, k text, qty int) returns void
 language plpgsql security definer set search_path = public as $$
@@ -1658,34 +1682,65 @@ begin
   if t is null then return; end if;
   lvl := public._art_level(); if lvl = 'off' then return; end if;
   r := public._art_rule(lvl, t); if r is null then return; end if;
-  cap := (r->>'cap')::int;
-  select n into have from public.art_get where player = uid and day = current_date and tier = t;
-  if coalesce(have, 0) + qty > cap then
-    if cap = 0 then raise exception 'Les artefacts légendaires ne se fabriquent pas en ce moment';
-    else raise exception 'Limite du jour atteinte : % artefact(s) de ce niveau par jour (achat et fabrication), il en reste %', cap, greatest(0, cap - coalesce(have, 0)); end if;
+  cap := coalesce((r->>'get')::int, 0);
+  if cap > 0 then
+    select coalesce(got, 0) into have from public.art_day where player = uid and day = current_date and tier = t;
+    if coalesce(have, 0) + qty > cap then
+      raise exception 'Limite du jour atteinte : % par jour à l''achat et à l''atelier pour ce niveau, il en reste %', cap, greatest(0, cap - coalesce(have, 0));
+    end if;
   end if;
-  insert into public.art_get (player, day, tier, n) values (uid, current_date, t, qty)
-    on conflict (player, day, tier) do update set n = public.art_get.n + qty;
-  delete from public.art_get where day < current_date - 2;
+  insert into public.art_day (player, day, tier, got) values (uid, current_date, t, qty)
+    on conflict (player, day, tier) do update set got = public.art_day.got + qty;
+  delete from public.art_day where day < current_date - 2;
 end $$;
 -- les réglages, pour l'organisateur (et les quotas restants pour un joueur)
 create or replace function public.art_rules_state() returns json
 language plpgsql stable security definer set search_path = public as $$
-declare lvl text := public._art_level();
+declare lvl text := public._art_level(); g record;
 begin
   if not public.is_approved() then raise exception 'Accès non autorisé'; end if;
-  return json_build_object('level', (select coalesce(nullif(art_rules->>'level', ''), 'off') from public.game where id = 1),
-    'emerg', (select coalesce((art_rules->>'emerg')::boolean, false) from public.game where id = 1), 'effective', lvl,
+  select coalesce(nullif(art_rules->>'level', ''), 'off') lv, coalesce((art_rules->>'emerg')::boolean, false) em,
+         coalesce((art_rules->>'emerg_x')::numeric, 3) ex, coalesce(art_rules->'custom', '{}'::jsonb) cu into g from public.game where id = 1;
+  return json_build_object('level', g.lv, 'emerg', g.em, 'emerg_x', g.ex, 'effective', lvl, 'custom', g.cu,
     'rules', json_build_object('fort', public._art_rule(lvl, 'fort'), 'tres', public._art_rule(lvl, 'tres'), 'legend', public._art_rule(lvl, 'legend')),
-    'today', (select coalesce(json_object_agg(tier, n), '{}'::json) from public.art_get where player = auth.uid() and day = current_date));
+    'today', (select coalesce(json_object_agg(tier, json_build_object('used', used, 'got', got)), '{}'::json) from public.art_day where player = auth.uid() and day = current_date),
+    'server', (select coalesce(json_object_agg(tier, used_s), '{}'::json) from (select tier, sum(used)::int used_s from public.art_day where day = current_date group by tier) x));
 end $$;
 create or replace function public.admin_set_art_rules(p_level text) returns void
 language plpgsql security definer set search_path = public as $$
 begin
   if not public.is_admin() then raise exception 'Réservé à l''administrateur'; end if;
-  if p_level not in ('off', 'modere', 'strict') then raise exception 'Niveau invalide'; end if;
+  if p_level not in ('off', 'modere', 'strict', 'custom') then raise exception 'Niveau invalide'; end if;
   update public.game set art_rules = art_rules || jsonb_build_object('level', p_level) where id = 1;
   perform public._log(auth.uid(), 'art_rules', jsonb_build_object('level', p_level));
+end $$;
+-- réglage fin (fusion partielle : on ne touche qu'aux clés fournies) :
+--   { level?, emerg_x?, custom?: { fort:{cd,use_p,use_s,get}, tres:{...}, legend:{...} } }
+create or replace function public.admin_art_config(p jsonb) returns void
+language plpgsql security definer set search_path = public as $$
+declare patch jsonb := '{}'::jsonb; cu jsonb := '{}'::jsonb; tier text; src jsonb;
+begin
+  if not public.is_admin() then raise exception 'Réservé à l''administrateur'; end if;
+  if p ? 'level' then
+    if p->>'level' not in ('off', 'modere', 'strict', 'custom') then raise exception 'Niveau invalide'; end if;
+    patch := patch || jsonb_build_object('level', p->>'level');
+  end if;
+  if p ? 'emerg_x' then
+    patch := patch || jsonb_build_object('emerg_x', greatest(1.5, least(20, coalesce((p->>'emerg_x')::numeric, 3))));
+  end if;
+  if p ? 'custom' then
+    foreach tier in array array['fort', 'tres', 'legend'] loop
+      src := coalesce(p->'custom'->tier, '{}'::jsonb);
+      cu := cu || jsonb_build_object(tier, jsonb_build_object(
+        'cd',    greatest(0, least(86400, coalesce((src->>'cd')::int, 0))),
+        'use_p', greatest(0, least(9999, coalesce((src->>'use_p')::int, 0))),
+        'use_s', greatest(0, least(99999, coalesce((src->>'use_s')::int, 0))),
+        'get',   greatest(0, least(9999, coalesce((src->>'get')::int, 0)))));
+    end loop;
+    patch := patch || jsonb_build_object('custom', cu);
+  end if;
+  update public.game set art_rules = art_rules || patch where id = 1;
+  perform public._log(auth.uid(), 'art_config', patch);
 end $$;
 
 create or replace function public.shop_buy(p_kind text, p_qty int default 1) returns void
@@ -2120,7 +2175,7 @@ begin
     perform public._log(t.winner, 'prize_given', jsonb_build_object('prize', t.won_prize));
   end if;
   update public.treasure set winner = null, winner_pseudo = null, won_prize = null, prize_given = false, won_podium = null where id = 1;
-  update public.game set size = new_size, started_at = now(), revealed_at = null, destroyed = 0, peeled = 0,
+  update public.game set size = new_size, started_at = now(), revealed_at = null, destroyed = 0, peeled = 0, peel_total = 0,
          rally_until = null, eye_until = null, arts_v4 = true, chests_v6 = true,
          week_base = 0, week_done = false, event_until = null,
          seed = floor(random() * 2000000000)::int where id = 1;

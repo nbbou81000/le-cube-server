@@ -1225,6 +1225,9 @@ textarea.tx{min-height:64px;resize:vertical;font-family:inherit}
 #ctlToast.on{opacity:1}
 #ctlToast.bad{background:var(--clay);color:#fff}
 .note{font-size:.84rem;color:var(--ink2);margin:0 0 10px}
+.cbox{border:1px solid var(--rule);border-radius:10px;padding:12px;background:var(--paper)}
+.cbox label{font-size:.88rem;margin:3px 0}
+.cbox input[type=number]{padding:5px 8px;border:1px solid var(--rule2);border-radius:8px;background:var(--paper)}
 .items{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
 .items label{display:flex;align-items:center;gap:6px;font-size:.88rem;background:var(--paper);border:1px solid var(--rule);border-radius:8px;padding:5px 8px}
 .items input{width:64px;padding:4px 6px;border:1px solid var(--rule2);border-radius:6px;background:var(--sheet);margin-left:auto}
@@ -1543,6 +1546,41 @@ async function cGame() {
 }
 
 /* ---------- 💰 Économie ---------- */
+const ECO_TIERS = [['fort', '⭐ Forts'], ['tres', '⭐⭐ Très forts'], ['legend', '✨ Légendaires']];
+function ecoDur(x) { return x >= 60 ? `${Math.round(x / 60)} min` : `${x} s`; }
+function ecoRulesSummary(rules) {
+  if (rules.effective === 'off' || !rules.rules) return '<p class="note">Aucune limite en ce moment.</p>';
+  const line = ([t, nm]) => { const q = rules.rules[t]; if (!q) return '';
+    const td = rules.today?.[t] || {}, sv = rules.server?.[t] || 0, b = [];
+    if (q.cd > 0) b.push(`recharge ${ecoDur(q.cd)}`);
+    if (q.use_p > 0) b.push(`${q.use_p}/jour/joueur`);
+    if (q.use_s > 0) b.push(`${q.use_s}/jour serveur (auj. ${sv})`);
+    if (q.get > 0) b.push(`${q.get}/jour achat+atelier`);
+    return b.length ? `<div class="prow" style="padding:4px 0"><div class="who"><b>${nm}</b><small>${b.join(' · ')}</small></div></div>` : ''; };
+  return ECO_TIERS.map(line).join('') || '<p class="note">Aucune limite en ce moment.</p>';
+}
+function ecoRegHtml(rules) {
+  if (rules.level === 'custom') CTL.ecoCustom = true;
+  const seed = t => { const c = rules.custom?.[t]; if (c && (c.cd || c.use_p || c.use_s || c.get)) return c;
+    const e = rules.effective !== 'off' && rules.rules?.[t]; return e || { cd: 0, use_p: 0, use_s: 0, get: 0 }; };
+  const presets = [['off', 'Libres'], ['modere', 'Modérés'], ['strict', 'Stricts'], ['custom', 'Personnalisé']];
+  const fld = (t, k, lab, val) => `<label style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span>${lab}</span><input type="number" min="0" id="ckAr_${t}_${k}" value="${val || 0}" style="width:80px"></label>`;
+  const editor = CTL.ecoCustom ? `<div class="cbox" style="margin-top:10px"><b>✎ Réglage personnalisé</b>
+    <p class="note" style="margin:2px 0 6px">0 = aucune limite. La recharge est par joueur ; les limites par jour se remettent à zéro chaque jour.</p>
+    ${ECO_TIERS.map(([t, nm]) => { const s = seed(t); return `<div style="margin:6px 0;padding-top:4px;border-top:1px solid #0001"><b>${nm}</b>
+      ${fld(t, 'cd', 'Recharge (secondes)', s.cd)}${fld(t, 'use_p', 'Utilisations/jour par joueur', s.use_p)}
+      ${fld(t, 'use_s', 'Utilisations/jour (serveur)', s.use_s)}${fld(t, 'get', 'Achetés+fabriqués/jour/joueur', s.get)}</div>`; }).join('')}
+    <div class="acts"><button class="btn" id="ckArSave">💾 Enregistrer le personnalisé</button></div></div>` : '';
+  return `<p class="note">Recharge entre deux utilisations, utilisations par jour (par joueur et pour tout le serveur) et nombre par jour (achat + atelier) pour les artefacts forts, très forts et légendaires.${rules.emerg ? ' <b>🚨 Freinage d’urgence du pilote en cours : strict.</b>' : ''}</p>
+    <div class="seg">${presets.map(([k, t]) => `<button type="button" data-lv="${k}" aria-pressed="${rules.level === k}">${t}</button>`).join('')}</div>
+    <div style="margin-top:8px">${ecoRulesSummary(rules)}</div>
+    <p class="note">Modérés : forts 1 min et 10/jour · très forts 5 min et 3/jour · légendaires 30 min et 1/jour.<br>Stricts : forts 3 min et 5/jour · très forts 15 min, 3/jour/joueur et 8/jour serveur · légendaires 1 h, 1/jour/joueur et 3/jour serveur.</p>
+    ${editor}
+    <div class="cbox" style="margin-top:10px"><b>🚨 Sensibilité du freinage d’urgence</b>
+      <p class="note" style="margin:2px 0 6px">Le pilote freine quand la partie va trop vite sur la dernière heure. Plus le nombre est petit, plus il freine tôt. Les Écorces du Monde ne comptent plus.</p>
+      <label style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span>Déclenche à … × le rythme visé</span><input type="number" min="1.5" max="20" step="0.5" id="ckEmergX" value="${rules.emerg_x ?? 3}" style="width:80px"></label>
+      <div class="acts"><button class="btn" id="ckEmergS">💾 Enregistrer la sensibilité</button></div></div>`;
+}
 async function cEco() {
   const st = await rpc('game_state'), rc = await rpc('admin_recipes'), ar = await rpc('admin_artifacts'), rules = await rpc('art_rules_state'), rb = await rpc('admin_robots').catch(() => null);
   const shop = st.shop || {}, recs = rc.recipes || {};
@@ -1551,9 +1589,7 @@ async function cEco() {
     ${sheet('🏪 Prix de la boutique', `<p class="note">En pièces d’or · 0 = pas en vente. Les légendaires ne se vendent jamais.</p>
       <div class="items">${ART_KINDS.filter(k => !['ecorce', 'oeil'].includes(k)).map(k => `<label>${itemName(k)}<input type="number" min="0" id="ckPr_${k}" value="${shop[k] ?? 0}"></label>`).join('')}</div>
       <div class="acts"><button class="btn" id="ckPrS">💾 Enregistrer les prix</button></div>`, 'wide')}
-    ${sheet('⚖️ Artefacts puissants', `<p class="note">Temps de recharge entre deux utilisations et nombre maximum par jour (achat + atelier) pour les artefacts forts, très forts et légendaires.${rules.emerg ? ' <b>🚨 Freinage d’urgence du pilote en cours : strict.</b>' : ''}</p>
-      <div class="seg">${[['off', 'Libres'], ['modere', 'Modérés'], ['strict', 'Stricts']].map(([k, t]) => `<button type="button" data-lv="${k}" aria-pressed="${rules.level === k}">${t}</button>`).join('')}</div>
-      <p class="note">Modérés : forts 1 min et 10/jour · très forts 5 min et 3/jour · légendaires 30 min et 1 fabrication/jour.<br>Stricts : 3 min et 5/jour · 15 min et 1/jour · légendaires 1 h, aucune fabrication.</p>`)}
+    ${sheet('⚖️ Artefacts puissants', ecoRegHtml(rules), 'wide')}
     ${sheet('🎲 Artefacts cachés dans le cube', `<div class="tw" style="max-height:260px;overflow:auto"><table><tr><th class="l">Artefact</th><th>Cachés</th><th>Trouvés</th></tr>
       ${Object.entries(kinds).sort((a, b) => b[1].hidden - a[1].hidden).map(([k, v]) => `<tr><td class="l">${itemName(k)}</td><td>${fmt(v.hidden)}</td><td>${fmt(v.found)}</td></tr>`).join('')}</table></div>
       <div class="frow" style="margin-top:10px"><select id="ckAk" style="flex:1">${[...ART_KINDS, 'toile', 'lenteur', 'brouillard', 'macon', 'durci', 'pickpocket'].map(k => `<option value="${k}">${itemName(k)}</option>`).join('')}</select>${num('ckAq', 5, 1, 500, 80)}</div>
@@ -1571,7 +1607,18 @@ async function cEco() {
     if (!ch.length) return ctoast('Aucun prix modifié');
     if (await act(async () => { for (const k of ch) await rpc('admin_set_price', { p_kind: k, p_price: Math.max(0, Math.floor(+$('ckPr_' + k).value) || 0) }); return ch.length; }, n => `🏪 ${n} prix enregistré(s)`)) { tell('config', 'prices'); reshow(); }
   };
-  $('ckBody').querySelectorAll('[data-lv]').forEach(b => b.onclick = async () => { if (await act(() => rpc('admin_set_art_rules', { p_level: b.dataset.lv }), '⚖️ Régulation enregistrée')) { tell('config', 'prices'); reshow(); } });
+  $('ckBody').querySelectorAll('[data-lv]').forEach(b => b.onclick = async () => {
+    const lv = b.dataset.lv;
+    if (lv === 'custom') { CTL.ecoCustom = true; if (rules.level === 'custom') return reshow(); }
+    if (await act(() => rpc('admin_set_art_rules', { p_level: lv }), '⚖️ Régulation enregistrée')) { tell('config', 'prices'); reshow(); }
+  });
+  { const bs = $('ckArSave'); if (bs) bs.onclick = async () => {
+    const num = id => Math.max(0, Math.round(+($(id)?.value) || 0));
+    const custom = {}; ECO_TIERS.forEach(([t]) => custom[t] = { cd: num(`ckAr_${t}_cd`), use_p: num(`ckAr_${t}_use_p`), use_s: num(`ckAr_${t}_use_s`), get: num(`ckAr_${t}_get`) });
+    if (await act(() => rpc('admin_art_config', { p: { level: 'custom', custom } }), '⚖️ Réglage personnalisé enregistré')) { tell('config', 'prices'); reshow(); } }; }
+  { const be = $('ckEmergS'); if (be) be.onclick = async () => {
+    const x = Math.min(20, Math.max(1.5, +($('ckEmergX')?.value) || 3));
+    if (await act(() => rpc('admin_art_config', { p: { emerg_x: x } }), '🚨 Sensibilité enregistrée')) { tell('config', 'prices'); reshow(); } }; }
   $('ckAadd').onclick = async () => { if (await act(() => rpc('admin_add_artifacts', { k: $('ckAk').value, cnt: Math.min(500, n0('ckAq')), min_layer: 0, max_layer: 999 }), n => `➕ ${n} caché(s)`)) { tell('config', 'arts'); reshow(); } };
   $('ckArem').onclick = async () => { if (await act(() => rpc('admin_remove_artifacts', { k: $('ckAk').value, cnt: n0('ckAq') }), n => `➖ ${n} retiré(s)`)) { tell('config', 'arts'); reshow(); } };
   $('ckRcS').onclick = async () => {

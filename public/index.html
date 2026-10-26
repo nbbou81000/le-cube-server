@@ -3237,12 +3237,18 @@ function artRulesHtml(r) {
   const dur = x => x >= 60 ? L(`${Math.round(x / 60)} min`, `${Math.round(x / 60)} min`) : `${x} s`;
   const row = (t, ic, nm) => { const q = r.rules[t]; if (!q) return '';
     const icons = ART_TIERS[t].map(k => ARTIFACTS[k]?.icon || '').join('');
-    return `<div style="margin:3px 0">${ic} <b>${nm}</b> ${icons} · ${L(`une utilisation toutes les ${dur(q.cd)}`, `one use every ${dur(q.cd)}`)} · ${q.cap > 0
-      ? (t === 'legend' ? L(`${q.cap} fabrication${plural(q.cap)} par jour à l’atelier (aujourd’hui : ${r.today?.[t] || 0})`, `${q.cap} crafted a day (today: ${r.today?.[t] || 0})`)
-        : L(`${q.cap} par jour à l’achat et à l’atelier (aujourd’hui : ${r.today?.[t] || 0})`, `${q.cap} a day from the shop and workshop (today: ${r.today?.[t] || 0})`))
-      : L('pas de fabrication', 'no crafting')}</div>`; };
+    const td = r.today?.[t] || {}, sv = r.server?.[t] || 0;
+    const bits = [];
+    if (q.cd > 0) bits.push(L(`une utilisation toutes les ${dur(q.cd)}`, `one use every ${dur(q.cd)}`));
+    if (q.use_p > 0) bits.push(L(`${q.use_p}/jour pour toi (aujourd’hui : ${td.used || 0})`, `${q.use_p}/day for you (today: ${td.used || 0})`));
+    if (q.use_s > 0) bits.push(L(`${q.use_s}/jour pour tout le serveur (aujourd’hui : ${sv})`, `${q.use_s}/day server-wide (today: ${sv})`));
+    if (q.get > 0) bits.push(L(`${q.get}/jour à l’achat et à l’atelier (aujourd’hui : ${td.got || 0})`, `${q.get}/day from shop and workshop (today: ${td.got || 0})`));
+    if (!bits.length) return '';
+    return `<div style="margin:3px 0">${ic} <b>${nm}</b> ${icons} · ${bits.join(' · ')}</div>`; };
+  const rows = [row('fort', '⭐', L('Forts', 'Strong')), row('tres', '⭐⭐', L('Très forts', 'Very strong')), row('legend', '✨', L('Légendaires', 'Legendary'))].join('');
+  if (!rows) return '';
   return `<div class="mission" style="margin:6px 0 10px;border-color:#9fb4ff66"><b>⚖️ ${L('Artefacts puissants régulés', 'Powerful artifacts are regulated')}${r.emerg ? ` · 🚨 ${L('freinage d’urgence', 'emergency brake')}` : ''}</b>
-    <div class="muted" style="font-size:12px;margin-top:4px">${row('fort', '⭐', L('Forts', 'Strong'))}${row('tres', '⭐⭐', L('Très forts', 'Very strong'))}${row('legend', '✨', L('Légendaires', 'Legendary'))}</div></div>`;
+    <div class="muted" style="font-size:12px;margin-top:4px">${rows}</div></div>`;
 }
 async function openShop(tab = 'boutique') {
   openModal(L('🏪 Commerce', '🏪 Trading'), `<p class="muted">${L('Chargement…', 'Loading…')}</p>`, 'shop:' + tab);
@@ -4511,8 +4517,8 @@ async function renderPilot() {
       <p class="muted" style="margin:0 0 6px">${intro}</p>
       <div class="row" style="gap:6px;flex-wrap:wrap;align-items:center"><span>${L('Finir le cube dans', 'Finish the cube in')}</span><input id="pilDays" type="number" min="1" max="3650" value="${a.days || 30}" style="width:80px"><span>${L('jours', 'days')}</span></div>
       <label class="switch"><span>🏪 ${L('Gérer aussi les prix de la boutique et les recettes de l’atelier (changements lents et limités : au plus ±12 % toutes les 6 h pour les prix, ±10 % toutes les 12 h pour l’atelier)', 'Also manage shop prices and workshop recipes (slow, limited changes: at most ±12% every 6 h for prices, ±10% every 12 h for the workshop)')}</span><input type="checkbox" class="chk" id="pilPrices" ${a.prices ? 'checked' : ''}></label>
-      <label class="switch"><span>🚨 ${L('Freinage d’urgence : si la partie s’emballe (3 fois trop vite sur la dernière heure), réglages toutes les 5 min et beaucoup plus forts : bien moins d’artefacts, d’or et de matériaux cachés, prix en hausse, artefacts puissants régulés au niveau strict, et coups nécessaires par bloc augmentés (puis tout redescend en douceur quand ça se calme)',
-        '🚨 Emergency brake: if the game runs away (3 times too fast over the last hour), adjustments every 5 min and much stronger: far fewer hidden artifacts, gold and materials, higher prices, powerful artifacts regulated at the strict level, and more hits per block (then everything eases back when it calms down)')}</span><input type="checkbox" class="chk" id="pilBrake" ${a.brake !== false ? 'checked' : ''}></label>
+      <label class="switch"><span>🚨 ${L('Freinage d’urgence : si la partie s’emballe sur la dernière heure (seuil réglable dans ⚖️ Artefacts puissants, par défaut 3× le rythme visé — les Écorces du Monde ne comptent plus), réglages toutes les 5 min et beaucoup plus forts : bien moins d’artefacts, d’or et de matériaux cachés, prix en hausse, artefacts puissants régulés au niveau strict, et coups nécessaires par bloc augmentés (puis tout redescend en douceur quand ça se calme)',
+        '🚨 Emergency brake: if the game runs away over the last hour (threshold adjustable in ⚖️ Powerful artifacts, 3× the target pace by default — World Peels no longer count), adjustments every 5 min and much stronger: far fewer hidden artifacts, gold and materials, higher prices, powerful artifacts regulated at the strict level, and more hits per block (then everything eases back when it calms down)')}</span><input type="checkbox" class="chk" id="pilBrake" ${a.brake !== false ? 'checked' : ''}></label>
       <div class="btns"><button id="pilGo" class="primary">▶️ ${L('Lancer le pilote', 'Start the autopilot')}</button></div>
       ${journal ? `<details style="margin-top:6px"><summary>${L('Journal du pilote', 'Autopilot log')}</summary>${journal}</details>` : ''}`;
     $('pilGo').onclick = async () => {
@@ -4556,22 +4562,60 @@ async function renderPilot() {
 }
 
 /* ---------- ⚖️ Régulation des artefacts puissants (👑) ---------- */
+let artShowCustom = false;
 async function renderArtAdmin() {
   const box = $('admReg'); if (!box) return;
   let r; try { r = await api.artRules(); } catch (e) { box.innerHTML = `<h3>⚖️ ${L('Artefacts puissants', 'Powerful artifacts')}</h3><p>⚠️ ${esc(trServer(e.message))}</p>`; return; }
   if (!$('admReg')) return;
-  const lv = [['off', L('Libres', 'Free')], ['modere', L('Modérés', 'Moderate')], ['strict', L('Stricts', 'Strict')]];
+  if (r.level === 'custom') artShowCustom = true;
+  const lv = [['off', L('Libres', 'Free')], ['modere', L('Modérés', 'Moderate')], ['strict', L('Stricts', 'Strict')], ['custom', L('Personnalisé', 'Custom')]];
+  // valeurs de départ de l'éditeur : le réglage personnalisé enregistré, sinon le niveau actif, sinon « modéré »
+  const seed = t => { const c = r.custom?.[t]; if (c && (c.cd || c.use_p || c.use_s || c.get)) return c;
+    const e = r.effective !== 'off' && r.rules?.[t]; return e || { cd: 0, use_p: 0, use_s: 0, get: 0 }; };
+  const tiers = [['fort', '⭐ ' + L('Forts', 'Strong')], ['tres', '⭐⭐ ' + L('Très forts', 'Very strong')], ['legend', '✨ ' + L('Légendaires', 'Legendary')]];
+  const fld = (t, k, lab, val, ph) => `<label style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;margin:2px 0">${lab}
+    <input type="number" min="0" id="ac_${t}_${k}" value="${val || 0}" placeholder="${ph || ''}" style="width:72px;text-align:right">
+  </label>`;
+  const editor = () => `<div class="mission" id="acEditor" style="margin:8px 0;border-color:#9fb4ff66">
+    <b style="font-size:13px">✎ ${L('Réglage personnalisé', 'Custom settings')}</b>
+    <p class="muted" style="font-size:11px;margin:2px 0 6px">${L('0 = aucune limite. La recharge est par joueur ; les limites par jour se remettent à zéro chaque jour.', '0 = no limit. Recharge is per player; daily limits reset each day.')}</p>
+    ${tiers.map(([t, nm]) => { const s = seed(t); return `<div style="margin:6px 0;padding-top:4px;border-top:1px solid #ffffff14"><b style="font-size:12px">${nm}</b>
+      ${fld(t, 'cd', L('Recharge (secondes)', 'Recharge (seconds)'), s.cd)}
+      ${fld(t, 'use_p', L('Utilisations/jour par joueur', 'Uses/day per player'), s.use_p)}
+      ${fld(t, 'use_s', L('Utilisations/jour (tout le serveur)', 'Uses/day (whole server)'), s.use_s)}
+      ${fld(t, 'get', L('Achetés + fabriqués/jour par joueur', 'Bought + crafted/day per player'), s.get)}</div>`; }).join('')}
+    <button id="acSave" style="margin-top:8px;width:100%">💾 ${L('Enregistrer le personnalisé', 'Save custom')}</button>
+  </div>`;
   box.innerHTML = `<h3>⚖️ ${L('Artefacts puissants', 'Powerful artifacts')}</h3>
-    <p class="muted" style="margin:0 0 6px">${L('Ralentit les artefacts qui détruisent beaucoup d’un coup : un temps de recharge entre deux utilisations (par joueur), et un nombre maximum par jour à l’achat et à l’atelier. Ce qu’on trouve en creusant n’est pas limité. L’Écorce du Monde garde en plus sa recharge de 6 h pour tout le serveur.',
-      'Slows down artifacts that destroy a lot at once: a recharge time between two uses (per player), and a daily maximum from the shop and workshop. What players dig up is not limited. The World Peel also keeps its 6-hour recharge for the whole server.')}</p>
+    <p class="muted" style="margin:0 0 6px">${L('Ralentit les artefacts qui détruisent beaucoup d’un coup : un temps de recharge entre deux utilisations (par joueur), un nombre d’utilisations par jour (par joueur et pour tout le serveur), et un nombre maximum par jour à l’achat et à l’atelier. Ce qu’on trouve en creusant n’est pas limité.',
+      'Slows down artifacts that destroy a lot at once: a recharge time between uses (per player), a number of uses per day (per player and for the whole server), and a daily maximum from the shop and workshop. What players dig up is not limited.')}</p>
     <div class="seg">${lv.map(([k, t]) => `<button data-artlv="${k}" class="${r.level === k ? 'on' : ''}">${t}</button>`).join('')}</div>
     <div style="margin-top:8px">${r.effective === 'off' ? `<p class="muted">${L('Aucune limite en ce moment.', 'No limits right now.')}</p>` : artRulesHtml(r)}</div>
-    <p class="muted" style="font-size:12px;margin:4px 0 0">${L('Modérés : forts 1 min de recharge et 10 par jour, très forts 5 min et 3 par jour, légendaires 30 min et 1 fabrication par jour. Stricts : 3 min / 5 par jour, 15 min / 1 par jour, légendaires 1 h et aucune fabrication. Le freinage d’urgence du pilote passe tout seul en strict le temps qu’il faut.',
-      'Moderate: strong 1 min recharge and 10 a day, very strong 5 min and 3 a day, legendary 30 min and 1 crafted a day. Strict: 3 min / 5 a day, 15 min / 1 a day, legendary 1 h and no crafting. The autopilot’s emergency brake switches to strict by itself for as long as needed.')}</p>`;
+    ${artShowCustom ? editor() : ''}
+    <div class="mission" style="margin:8px 0 0;border-color:#ffd48a66">
+      <b style="font-size:13px">🚨 ${L('Sensibilité du freinage d’urgence', 'Emergency brake sensitivity')}</b>
+      <p class="muted" style="font-size:11px;margin:2px 0 6px">${L('Le pilote freine quand la partie va trop vite. Plus le nombre est petit, plus il freine tôt. Les Écorces du Monde ne comptent plus dans ce calcul.',
+        'The autopilot brakes when the game runs too fast. The smaller the number, the sooner it brakes. World Peels no longer count toward this.')}</p>
+      <label style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px">${L('Déclenche à', 'Triggers at')}
+        <span><input type="number" min="1.5" max="20" step="0.5" id="acEmergX" value="${r.emerg_x ?? 3}" style="width:64px;text-align:right"> × ${L('le rythme visé', 'target pace')}</span></label>
+      <button id="acEmergSave" style="margin-top:8px;width:100%">💾 ${L('Enregistrer la sensibilité', 'Save sensitivity')}</button>
+    </div>`;
   box.querySelectorAll('[data-artlv]').forEach(b => b.onclick = async () => {
-    if (b.dataset.artlv === r.level) return;
-    if (await act(() => api.setArtRules(b.dataset.artlv), L('⚖️ Régulation enregistrée', '⚖️ Regulation saved'))) renderArtAdmin();
+    const k = b.dataset.artlv;
+    if (k === 'custom') { artShowCustom = true; if (r.level === 'custom') return renderArtAdmin();
+      if (await act(() => api.setArtRules('custom'), L('⚖️ Mode personnalisé activé', '⚖️ Custom mode on'))) renderArtAdmin(); return; }
+    if (k === r.level) return;
+    if (await act(() => api.setArtRules(k), L('⚖️ Régulation enregistrée', '⚖️ Regulation saved'))) renderArtAdmin();
   });
+  const acSave = $('acSave'); if (acSave) acSave.onclick = async () => {
+    const num = id => Math.max(0, Math.round(+($(id)?.value) || 0));
+    const custom = {}; tiers.forEach(([t]) => custom[t] = { cd: num(`ac_${t}_cd`), use_p: num(`ac_${t}_use_p`), use_s: num(`ac_${t}_use_s`), get: num(`ac_${t}_get`) });
+    if (await act(() => api.artConfig({ level: 'custom', custom }), L('⚖️ Réglage personnalisé enregistré', '⚖️ Custom settings saved'))) renderArtAdmin();
+  };
+  const acE = $('acEmergSave'); if (acE) acE.onclick = async () => {
+    const x = Math.min(20, Math.max(1.5, +($('acEmergX')?.value) || 3));
+    if (await act(() => api.artConfig({ emerg_x: x }), L('🚨 Sensibilité enregistrée', '🚨 Sensitivity saved'))) renderArtAdmin();
+  };
 }
 
 /* ---------- 📟 Écran TRMNL de l'organisateur (👑) ---------- */
@@ -7016,7 +7060,7 @@ async function renderMailBox() {
       <input id="mlAbGh" value="${esc(c.aboutCfg?.github || '')}" placeholder="https://github.com/…">
       <input id="mlAbKofi" value="${esc(c.aboutCfg?.kofi || '')}" placeholder="https://ko-fi.com/…"></div>
     <label>${L('Contact affiché sur la page Confidentialité (facultatif)', 'Contact shown on the Privacy page (optional)')}</label>
-    <input id="mlContact" maxlength="120" value="${esc(c.contact || '')}" placeholder="${L('ex. : Alex sur Discord', 'e.g. Alex on Discord')}">
+    <input id="mlContact" maxlength="120" value="${esc(c.contact || '')}" placeholder="${L('ex. : Alex sur Discord', 'e.g. Nico on the TRMNL Discord')}">
     <div class="btns"><button id="mlSave" class="small primary">💾 ${L('Enregistrer', 'Save')}</button>
       <a class="small" href="/confidentialite" target="_blank" rel="noopener" style="align-self:center;color:inherit">🔒 ${L('Voir la page Confidentialité', 'See the Privacy page')}</a></div>
     <label>${L('Essayer : s’envoyer un e-mail de test', 'Try it: send yourself a test e-mail')}</label>
@@ -7447,6 +7491,7 @@ function makeApi(call, callTable) {
     craft: k => call('craft', { p_kind: k }),
     artRules: () => call('art_rules_state', {}),
     setArtRules: lvl => call('admin_set_art_rules', { p_level: lvl }),
+    artConfig: p => call('admin_art_config', { p }),
     market: async () => (await call('market_list')) || [],
     marketCreate: (g, gq, w, wq) => call('market_create', { p_give: g, p_give_qty: gq, p_want: w, p_want_qty: wq }),
     marketCancel: id => call('market_cancel', { p_id: id }),

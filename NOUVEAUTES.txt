@@ -1,3 +1,5 @@
+Version 16.1 : 🚨 le freinage d’urgence du pilote ne se déclenche plus quand un joueur utilise une Écorce du Monde sur un gros cube (une couche entière d’un coup ne reflète pas le vrai rythme) : il ne compte plus que les blocs minés. Sa sensibilité est réglable (⚖️ Artefacts puissants, par défaut 3× le rythme visé). Nouveau mode « Personnalisé » de la régulation : recharge, utilisations par jour par joueur ET pour tout le serveur, et nombre par jour à l’achat et à l’atelier, pour chaque niveau d’artefact (forts, très forts, légendaires).
+
 Version 16.0 : 🔄 mise à jour de cloudflared (le tunnel) à distance depuis le tableau de bord, sans ouvrir le PC. Si la nouvelle version ne se reconnecte pas, l’ancienne est remise automatiquement : l’accès n’est jamais perdu.
 
 Version 15.9 : 🎛️ le tableau de bord de l’organisateur peut piloter tout le jeu (onglet « Contrôle »), et les joueurs connectés sont prévenus des changements.

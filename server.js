@@ -42,7 +42,7 @@ const VAPID_FILE = path.join(STATE, 'notifications-cles.json');         // clés
 const REPLAY_DIR = path.join(STATE, 'rejeux');
 const PHOTO_FILE = path.join(STATE, 'photo-du-cube.jpg');                // 🖼️ photo du thème « Ma photo »                          // 🎬 films des cubes (les 6 derniers)
 const KEEP_BACKUPS = 10;
-const GAME_VERSION = '16.0';
+const GAME_VERSION = '16.1';
 const UPDATE_NOTE = 'Nouveaux bruitages au choix dans ⚙️ › Son : sons d’origine du jeu ou pack de l’organisateur.';
 const PREV_DIR = path.join(STATE, 'version-precedente');                // 📦 copie de la version d'avant une mise à jour
 const UPDATE_FLAG = path.join(STATE, 'mise-a-jour-en-cours.json');
@@ -150,7 +150,7 @@ function stamp() {
 const RPC = new Set(['me', 'game_state', 'get_blocks', 'hit_blocks', 'use_artifact', 'get_inventory', 'give_item',
   'give_artifact', 'get_leaderboard', 'get_treasure', 'set_treasure', 'admin_players', 'admin_set_status',
   'admin_new_cube', 'admin_artifacts', 'admin_add_artifacts', 'admin_remove_artifacts', 'admin_set_inventory',
-  'admin_set_config', 'admin_set_price', 'shop_buy', 'craft', 'art_rules_state', 'admin_set_art_rules', 'market_list', 'market_create', 'market_cancel',
+  'admin_set_config', 'admin_set_price', 'shop_buy', 'craft', 'art_rules_state', 'admin_set_art_rules', 'admin_art_config', 'market_list', 'market_create', 'market_cancel',
   'market_accept', 'get_missions', 'deliver_mission', 'reroll_mission',
   'chat_send', 'chat_list', 'admin_chat_delete', 'admin_chat_clear', 'admin_db_size',
   'admin_set_status_many', 'admin_limits', 'admin_set_limits', 'admin_pending_count',
@@ -3180,12 +3180,16 @@ function apLog(txt, kind = 'info') {
   ap.log = [{ at: new Date().toISOString(), txt, kind }, ...(ap.log || [])].slice(0, 80);
 }
 // rythme mesuré : blocs par jour sur les 48 dernières heures (relevés toutes les 10 minutes)
-function apPace(D, T) {
-  const now = Date.now(), S = ap.samples || [];
+// Le rythme de régulation se base sur les blocs MINÉS (on retire ceux enlevés d'un coup par une Écorce
+// du Monde : une couche entière d'un gros cube fausserait le rythme sans refléter l'activité réelle).
+// En revanche le « reste » et la fin estimée se basent sur l'avancée réelle (les blocs pelés ont bien disparu).
+function apPace(D, T, peel) {
+  const now = Date.now(), S = ap.samples || [], pk = +peel || 0, Dm = D - pk;        // Dm = avancée hors Écorce
   const win = S.filter(s => now - s[0] <= 48 * 3600e3);
   const first = win[0] || S[0];
+  const firstDm = first ? first[1] - (+first[2] || 0) : 0;                            // avancée minée au début de la fenêtre
   const spanH = first ? (now - first[0]) / 3600e3 : 0;
-  const rate = spanH > 0.4 ? Math.max(0, D - first[1]) / (spanH / 24) : 0;          // blocs / jour
+  const rate = spanH > 0.4 ? Math.max(0, Dm - firstDm) / (spanH / 24) : 0;            // blocs minés / jour
   const daysLeft = Math.max(0.25, (new Date(ap.end) - now) / 864e5);
   const left = Math.max(0, T - D), need = left / daysLeft;                             // blocs / jour qu'il faudrait
   const R = need > 0 ? rate / need : 1;                                                // > 1 : trop vite · < 1 : trop lent
@@ -3208,14 +3212,15 @@ async function apStep(force) {
   apBusy = true;
   try {
     const now = Date.now();
-    const g = (await sql(`select size, destroyed, gold_every, mat_every, mat_w, mat_shift, peeled, started_at, max_hp from public.game where id = 1`)).rows[0];
-    const T = g.size ** 3, D = +g.destroyed;
+    const g = (await sql(`select size, destroyed, gold_every, mat_every, mat_w, mat_shift, peeled, peel_total, started_at, max_hp, coalesce((art_rules->>'emerg_x')::numeric, 3) as emerg_x from public.game where id = 1`)).rows[0];
+    const T = g.size ** 3, D = +g.destroyed, peel = +g.peel_total || 0;
+    const emergX = Math.min(20, Math.max(1.5, +g.emerg_x || 3));      // seuil de déclenchement du freinage (réglable)
     const stepMs = ap.emerg ? AP_STEP / 2 : AP_STEP;                  // 🚨 freinage d'urgence : un réglage toutes les 5 minutes
-    // relevé du rythme (même sans joueur connecté : c'est une seule petite lecture)
+    // relevé du rythme (même sans joueur connecté : c'est une seule petite lecture) — on garde aussi les blocs pelés
     let dirty = false;
     if (now - apLastSample >= stepMs - 5000 || !(ap.samples || []).length) {
       apLastSample = now; dirty = true;
-      ap.samples = [...(ap.samples || []), [now, D]].filter(s => now - s[0] <= 7 * 864e5).slice(-1100);
+      ap.samples = [...(ap.samples || []), [now, D, peel]].filter(s => now - s[0] <= 7 * 864e5).slice(-1100);
     }
     const players = new Set([...clients.values()].map(c => c.id));   // quelqu'un est connecté (l'organisateur compte aussi)
     if (!players.size && !force) { if (dirty || !ap.waiting) { ap.waiting = true; await apSave(); } return; }
@@ -3223,20 +3228,23 @@ async function apStep(force) {
     if (!force && now - (ap.last || 0) < stepMs - 5000) { if (dirty) await apSave(); return; }
     ap.last = now; ap.steps = (ap.steps || 0) + 1;
     if (!grid.data && !grid.building) await gridBuild();     // pour savoir ce qui est encore enfoui (jamais retirer un objet visible)
-    const P = apPace(D, T);
+    const P = apPace(D, T, peel);
     ap.pace = { rate: Math.round(P.rate), need: Math.round(P.need), R: +P.R.toFixed(3), conf: +P.conf.toFixed(2), eta: isFinite(P.eta) ? +P.eta.toFixed(1) : null, daysLeft: +P.daysLeft.toFixed(1), at: now };
     const changes = [];
     let refresh = false;
     // ---------- 0) 🚨 freinage d'urgence : la partie s'emballe sur la dernière heure ----------
     const S1 = (ap.samples || []).filter(x => now - x[0] <= 75 * 60e3)[0];
     const spanM = S1 ? (now - S1[0]) / 60e3 : 0;
-    const rateS = spanM >= (process.env.LECUBE_AP_FAST ? 0.1 : 15) ? Math.max(0, D - S1[1]) / (spanM / 1440) : 0;
+    // rythme court terme sur les blocs MINÉS seulement : une Écorce du Monde (toute une couche d'un coup) ne déclenche plus le frein
+    const minedDelta = S1 ? Math.max(0, (D - peel) - (S1[1] - (+S1[2] || 0))) : 0;
+    const rateS = spanM >= (process.env.LECUBE_AP_FAST ? 0.1 : 15) ? minedDelta / (spanM / 1440) : 0;
     const Rs = P.need > 0 ? rateS / P.need : 0;
     ap.Rs = +Rs.toFixed(2);
+    const relax = Math.max(1.2, emergX / 2);                            // on relâche le frein quand le rythme repasse sous la moitié du seuil
     const wasE = !!ap.emerg;
     if (ap.brake === false) ap.emerg = 0;
-    else if (!wasE && Rs >= 3) { ap.emerg = now; changes.push(`🚨 freinage d’urgence : ${apDec(Rs, 1)} fois trop rapide sur la dernière heure`); }
-    else if (wasE && Rs < 1.5 && now - ap.emerg > 30 * 60e3) { ap.emerg = 0; changes.push('✅ fin du freinage d’urgence : le rythme s’est calmé'); }
+    else if (!wasE && Rs >= emergX) { ap.emerg = now; changes.push(`🚨 freinage d’urgence : ${apDec(Rs, 1)} fois trop rapide sur la dernière heure (seuil ${apDec(emergX, 1)}×)`); }
+    else if (wasE && Rs < relax && now - ap.emerg > 30 * 60e3) { ap.emerg = 0; changes.push('✅ fin du freinage d’urgence : le rythme s’est calmé'); }
     const E = !!ap.emerg;
     if (E !== wasE) await sql(`update public.game set art_rules = art_rules || jsonb_build_object('emerg', $1::boolean) where id = 1`, [E]);
     if (E) P.Reff = Math.max(P.Reff, Rs);                                   // on réagit au rythme de la dernière heure, pas seulement des 48 h
