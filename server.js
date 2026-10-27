@@ -42,7 +42,7 @@ const VAPID_FILE = path.join(STATE, 'notifications-cles.json');         // clés
 const REPLAY_DIR = path.join(STATE, 'rejeux');
 const PHOTO_FILE = path.join(STATE, 'photo-du-cube.jpg');                // 🖼️ photo du thème « Ma photo »                          // 🎬 films des cubes (les 6 derniers)
 const KEEP_BACKUPS = 10;
-const GAME_VERSION = '16.1';
+const GAME_VERSION = '16.2';
 const UPDATE_NOTE = 'Nouveaux bruitages au choix dans ⚙️ › Son : sons d’origine du jeu ou pack de l’organisateur.';
 const PREV_DIR = path.join(STATE, 'version-precedente');                // 📦 copie de la version d'avant une mise à jour
 const UPDATE_FLAG = path.join(STATE, 'mise-a-jour-en-cours.json');
@@ -3395,22 +3395,8 @@ async function apStep(force) {
         if (n) { changes.push(`🛠️ ${n} recette${n > 1 ? 's' : ''} ${Cn > C0 ? 'un peu plus chère' : 'un peu moins chère'}${n > 1 ? 's' : ''} (×${apDec(Cn)})`); refresh = true; }
       }
     }
-    // ---------- 4) 👊 coups par bloc : seulement en freinage d'urgence (puis retour en douceur) ----------
-    if (ap.base && ap.base.max_hp == null) ap.base.max_hp = +g.max_hp;
-    const hpB = +(ap.base?.max_hp ?? g.max_hp), hpMax = Math.min(30, Math.max(hpB * 4, hpB + 8));
-    let hpN = +g.max_hp;
-    if (ap.brake !== false) {
-      if (E) hpN = Math.min(hpMax, hpN + Math.max(1, Math.round(hpB * 0.25)));
-      else if (hpN > hpB && P.Reff < 1.1 && now - (ap.hpAt || 0) >= 30 * 60e3 - 5000) hpN -= 1;
-    }
-    if (hpN !== +g.max_hp) {
-      ap.hpAt = now;
-      await sql('update public.game set max_hp = $1 where id = 1', [hpN]);
-      await sql('update public.blocks set hp = $1 where hp > $1', [hpN]);
-      gridInvalidate();
-      changes.push(`👊 ${hpN} coups par bloc (avant ${g.max_hp})`);
-      refresh = true;
-    }
+    // 👊 coups par bloc : jamais touchés par le pilote ni par le freinage d'urgence (réglage réservé à l'organisateur)
+    const hpN = +g.max_hp;
     // ---------- historique (pour le tableau de bord) ----------
     const gNow = (await sql('select gold_every, mat_every, mat_shift from public.game where id = 1')).rows[0];
     ap.hist = [...(ap.hist || []), { t: now, E: E ? 1 : 0, Rs: ap.Rs, hp: hpN, R: +P.R.toFixed(3), conf: +P.conf.toFixed(2), A: ap.A, Ch: ap.Ch, P: ap.P ?? 1, C: ap.C ?? 1, Q: ap.Q,
@@ -3446,9 +3432,6 @@ async function apStop(restore) {
   if (restore && ap.base) {
     const b = ap.base;
     await sql('update public.game set gold_every = $1, mat_every = $2, mat_w = $3, mat_shift = $4 where id = 1', [b.gold_every, b.mat_every, JSON.stringify(b.mat_w), b.mat_shift || 0]);
-    if (b.max_hp && +b.max_hp !== +(await sql('select max_hp from public.game where id = 1')).rows[0].max_hp) {
-      await sql('update public.game set max_hp = $1 where id = 1', [b.max_hp]); await sql('update public.blocks set hp = $1 where hp > $1', [b.max_hp]); gridInvalidate();
-    }
     if (ap.prices) {
       for (const [k, p] of Object.entries(b.prices || {})) await sql('insert into public.shop (kind, price) values ($1, $2) on conflict (kind) do update set price = excluded.price', [k, p]);
       for (const [k, ing] of Object.entries(b.recipes || {})) await sql('update public.recipes set ingredients = $2 where result = $1', [k, JSON.stringify(ing)]);
