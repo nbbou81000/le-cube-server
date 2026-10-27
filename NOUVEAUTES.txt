@@ -1,3 +1,5 @@
+Version 16.4 : 📈 deux nouvelles fenêtres dans la Vue d’ensemble du tableau de bord : 🧊 l’aperçu du cube (image dessinée par le PC, à tourner dans tous les sens, dessus et dessous, actualisée à la demande ou toutes les 30 s) et 📶 le débit réseau du PC serveur en direct (reçu / envoyé toutes les 2 s, courbe des 3 dernières minutes, signal et vitesse du Wi-Fi). Le tableau de bord doit être renvoyé avec cette version.
+
 Version 16.3 : ⚖️ quand la régulation « Personnalisé » est choisie, elle reste toujours appliquée, même pendant un freinage d’urgence du pilote (qui ne la remplace plus par « strict »). Elle ne s’enlève que si l’organisateur choisit un autre réglage.
 
 Version 16.2 : 👊 le pilote automatique et son freinage d’urgence ne touchent plus jamais au nombre de coups pour casser un bloc : seul l’organisateur le règle (👑 › Règles du jeu, ou le tableau de bord). À l’arrêt du pilote, ce nombre n’est plus remis à l’ancienne valeur non plus.

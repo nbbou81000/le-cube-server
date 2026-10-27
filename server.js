@@ -42,7 +42,7 @@ const VAPID_FILE = path.join(STATE, 'notifications-cles.json');         // clés
 const REPLAY_DIR = path.join(STATE, 'rejeux');
 const PHOTO_FILE = path.join(STATE, 'photo-du-cube.jpg');                // 🖼️ photo du thème « Ma photo »                          // 🎬 films des cubes (les 6 derniers)
 const KEEP_BACKUPS = 10;
-const GAME_VERSION = '16.3';
+const GAME_VERSION = '16.4';
 const UPDATE_NOTE = 'Nouveaux bruitages au choix dans ⚙️ › Son : sons d’origine du jeu ou pack de l’organisateur.';
 const PREV_DIR = path.join(STATE, 'version-precedente');                // 📦 copie de la version d'avant une mise à jour
 const UPDATE_FLAG = path.join(STATE, 'mise-a-jour-en-cours.json');
@@ -628,6 +628,159 @@ function shellCells(s, L, fn) {
 }
 // la couche L entière vient d'être arrachée (🧅 Écorce du Monde)
 function gridPeel(L) { if (grid.data) shellCells(grid.size, L, i => { if (grid.data[i] !== 0) gridPatch(i, 0); }); }
+
+// ---------- 🧊 Aperçu du cube pour le tableau de bord : une image PNG dessinée par le serveur ----------
+// Le serveur garde déjà tout le cube en mémoire (grid.data) : on lance un rayon par pixel, vu depuis un coin
+// du cube, et on colore le premier bloc touché comme dans le jeu (une couleur par couche). Une image d'environ
+// 100 Ko au lieu de plusieurs Mo de cube : très léger pour le téléphone. Dessin par morceaux (le jeu continue
+// pendant ce temps) et gardé 10 s en mémoire.
+function pngRGBA(w, h, px) {
+  const chunk = (type, data) => { const len = Buffer.alloc(4); len.writeUInt32BE(data.length);
+    const td = Buffer.concat([Buffer.from(type, 'ascii'), data]), crc = Buffer.alloc(4); crc.writeUInt32BE(crc32(td)); return Buffer.concat([len, td, crc]); };
+  const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4); ihdr[8] = 8; ihdr[9] = 6;
+  const raw = Buffer.alloc((w * 4 + 1) * h);
+  for (let y = 0; y < h; y++) { raw[y * (w * 4 + 1)] = 0; Buffer.from(px.buffer, px.byteOffset + y * w * 4, w * 4).copy(raw, y * (w * 4 + 1) + 1); }
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', zlib.deflateSync(raw, { level: 6 })), chunk('IEND', Buffer.alloc(0))]);
+}
+function layerRGB(L) {                       // mêmes couleurs que les couches du jeu (couche 0 = marbre blanc)
+  if (L <= 0) return [0.93, 0.93, 0.95];
+  const hh = (0.07 + L * 0.618034) % 1, ss = 0.5 + 0.125 * (L % 3), v = 0.82 + 0.1 * ((L + 1) % 2);
+  const i = Math.floor(hh * 6), f = hh * 6 - i, p = v * (1 - ss), q = v * (1 - f * ss), t = v * (1 - (1 - f) * ss);
+  return [[v, t, p], [q, v, p], [p, v, t], [p, q, v], [t, p, v], [v, p, q]][i % 6];
+}
+const cubeViewCache = new Map();
+async function cubeView(corner, up, W) {
+  if (!grid.data) await gridBuild();
+  const key = `${corner}:${up}:${W}`, hit = cubeViewCache.get(key);
+  if (hit && (hit.p || Date.now() - hit.at < 10e3)) return hit.p || hit.r;
+  const p = (async () => {
+    const d0 = grid.data, s = grid.size, maxHp = grid.maxHp || 255, H = W;
+    const sx = [1, 1, -1, -1][corner & 3], sz = [1, -1, -1, 1][corner & 3], sy = up ? 1 : -1;
+    const n3 = Math.sqrt(3), D = [-sx / n3, -sy / n3, -sz / n3];                 // direction des rayons
+    const cr = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    const nz = a => { const l = Math.hypot(...a); return a.map(x => x / l); };
+    const R = nz(cr(D, [0, 1, 0])), U = cr(R, D), c = s / 2;
+    let span = 0;
+    for (const x of [0, s]) for (const y of [0, s]) for (const z of [0, s]) {
+      const q = [x - c, y - c, z - c]; span = Math.max(span, Math.abs(q[0] * R[0] + q[1] * R[1] + q[2] * R[2]), Math.abs(q[0] * U[0] + q[1] * U[1] + q[2] * U[2]));
+    }
+    const scale = (W * 0.46) / span, px = new Uint8Array(W * H * 4), edges = scale >= 4;
+    const shade = [0.8, sy > 0 ? 1 : 0.55, 0.64];                              // par axe touché : côtés X, dessus/dessous, côtés Z
+    for (let py = 0; py < H; py++) {
+      if (py % 24 === 0) await new Promise(r => setImmediate(r));               // laisser respirer le jeu
+      for (let pxl = 0; pxl < W; pxl++) {
+        const u = (pxl + 0.5 - W / 2) / scale, v = (H / 2 - py - 0.5) / scale;
+        const o = [c + R[0] * u + U[0] * v - D[0] * 2 * s, c + R[1] * u + U[1] * v - D[1] * 2 * s, c + R[2] * u + U[2] * v - D[2] * 2 * s];
+        let tmin = -Infinity, tmax = Infinity, ax = 0;
+        for (let k = 0; k < 3; k++) { const a = (0 - o[k]) / D[k], b = (s - o[k]) / D[k], lo = Math.min(a, b), hi = Math.max(a, b);
+          if (lo > tmin) { tmin = lo; ax = k; } if (hi < tmax) tmax = hi; }
+        if (tmin > tmax) continue;                                               // à côté du cube : transparent
+        const t0 = tmin + 1e-7, P = [o[0] + D[0] * t0, o[1] + D[1] * t0, o[2] + D[2] * t0];
+        const cell = P.map(x => Math.min(s - 1, Math.max(0, Math.floor(x))));
+        const st = D.map(x => x > 0 ? 1 : -1), dt = D.map(x => Math.abs(1 / x));
+        const nx = D.map((x, k) => (x > 0 ? cell[k] + 1 - P[k] : P[k] - cell[k]) * dt[k] + t0);
+        let t = t0, found = false;
+        for (let guard = 0; guard < 3 * s + 3; guard++) {
+          if (d0[cell[0] + cell[1] * s + cell[2] * s * s] > 0) { found = true; break; }
+          ax = nx[0] < nx[1] ? (nx[0] < nx[2] ? 0 : 2) : (nx[1] < nx[2] ? 1 : 2);
+          t = nx[ax]; cell[ax] += st[ax]; nx[ax] += dt[ax];
+          if (cell[ax] < 0 || cell[ax] >= s) break;
+        }
+        if (!found) continue;                                                    // le rayon traverse un trou de part en part
+        const [x, y, z] = cell, val = d0[x + y * s + z * s * s];
+        const L = Math.min(x, y, z, s - 1 - x, s - 1 - y, s - 1 - z);
+        let k = shade[ax] * Math.max(0.35, 1 - (t - t0) / (s * 0.5));           // plus sombre au fond des trous
+        if (val !== 255 && val < maxHp) k *= 0.82;                                // bloc abîmé
+        if (edges) { const hp = [o[0] + D[0] * t, o[1] + D[1] * t, o[2] + D[2] * t];
+          for (let a = 0; a < 3; a++) if (a !== ax) { const f = hp[a] - Math.floor(hp[a]); if (f < 0.07 || f > 0.93) { k *= 0.86; break; } } }
+        const col = layerRGB(L), j = (py * W + pxl) * 4;
+        px[j] = Math.min(255, col[0] * k * 255); px[j + 1] = Math.min(255, col[1] * k * 255); px[j + 2] = Math.min(255, col[2] * k * 255); px[j + 3] = 255;
+      }
+    }
+    return { png: pngRGBA(W, H, px).toString('base64'), size: s, at: Date.now() };
+  })();
+  cubeViewCache.set(key, { p });
+  try { const r = await p; cubeViewCache.set(key, { r, at: Date.now() }); return r; }
+  catch (e) { cubeViewCache.delete(key); throw e; }
+}
+
+// ---------- 📶 Débit réseau du PC serveur (tableau de bord) ----------
+// Relevé toutes les 2 s, seulement pendant qu'un tableau de bord regarde (12 s après sa dernière demande).
+// Windows : compteurs de « netstat -e » et infos Wi-Fi de « netsh wlan show interfaces ». Linux : /proc/net/dev.
+const netLive = { hist: [], last: null, until: 0, timer: null, wifi: null, wifiAt: 0, err: null };
+const execFileP = promisify(execFile);
+async function netCounters() {
+  if (process.platform === 'win32') {
+    const { stdout } = await execFileP('netstat', ['-e'], { windowsHide: true, timeout: 5000, encoding: 'latin1' });
+    const c = parseNetstatE(stdout); if (c) return c;
+    throw new Error('compteurs réseau illisibles');
+  }
+  if (process.platform === 'linux') {
+    let rx = 0, tx = 0;
+    for (const l of fs.readFileSync('/proc/net/dev', 'utf8').split('\n').slice(2)) {
+      const m = l.match(/^\s*([^:]+):\s*(.*)$/); if (!m || /^(lo|docker|veth|br-|virbr)/.test(m[1].trim())) continue;
+      const f = m[2].trim().split(/\s+/).map(Number); rx += f[0] || 0; tx += f[8] || 0;
+    }
+    return { rx, tx };
+  }
+  throw new Error('système non pris en charge');
+}
+async function netWifi() {
+  if (process.platform === 'linux') {
+    try { const l = fs.readFileSync('/proc/net/wireless', 'utf8').split('\n')[2]; if (!l) return { none: true };
+      const f = l.trim().split(/\s+/); return { name: f[0].replace(':', ''), signal: Math.round(Math.min(100, (parseFloat(f[2]) / 70) * 100)) }; }
+    catch (e) { return { none: true }; }
+  }
+  if (process.platform !== 'win32') return null;
+  let out = '';
+  try { out = (await execFileP('netsh', ['wlan', 'show', 'interfaces'], { windowsHide: true, timeout: 5000, encoding: 'latin1' })).stdout; }
+  catch (e) { out = String(e.stdout || ''); }
+  return parseNetsh(out);
+}
+function parseNetstatE(stdout) {          // 1ʳᵉ ligne « libellé  nombre  nombre » = octets reçus / envoyés (toutes langues)
+  for (const l of String(stdout).split(/\r?\n/)) { const m = l.match(/^\s*\S+\s+(\d+)\s+(\d+)\s*$/); if (m) return { rx: +m[1], tx: +m[2] }; }
+  return null;
+}
+function parseNetsh(out) {                // « netsh wlan show interfaces », en français comme en anglais (sans dépendre des accents)
+  const w = {}, rates = [];
+  for (const l of String(out).split(/\r?\n/)) {
+    const m = l.match(/^\s*([^:]+?)\s*:\s*(.*?)\s*$/); if (!m) continue;
+    const [, k, v] = m;
+    if (k === 'SSID' && w.ssid == null) w.ssid = v;
+    else if (/^\d+\s*%$/.test(v) && w.signal == null) w.signal = parseInt(v, 10);
+    else if (/mbps|mbit/i.test(k) && /^[\d.,]+$/.test(v)) rates.push(parseFloat(v.replace(',', '.')));
+    else if (/radio/i.test(k) && w.radio == null) w.radio = v;
+    else if (/^(canal|channel)$/i.test(k) && w.channel == null) w.channel = v;
+    else if (/^(bande|band)$/i.test(k) && w.band == null) w.band = v;
+    else if (/^(nom|name)$/i.test(k) && w.name == null) w.name = v;
+  }
+  if (rates.length) { w.rxRate = rates[0]; w.txRate = rates[1] ?? null; }
+  if (w.ssid == null && w.signal == null) {
+    if (/location|emplacement|localisation/i.test(out)) return { locked: true };
+    return { none: true };
+  }
+  return w;
+}
+async function netSample() {
+  try {
+    const c = await netCounters(), now = Date.now(), p = netLive.last;
+    if (p) {
+      const dt = (now - p.t) / 1000, wrap = d => d < 0 ? d + 2 ** 32 : d;
+      if (dt > 0.5) netLive.hist = [...netLive.hist, { t: now, down: Math.round(wrap(c.rx - p.rx) / dt), up: Math.round(wrap(c.tx - p.tx) / dt) }].slice(-90);
+    }
+    netLive.last = { ...c, t: now }; netLive.err = null;
+  } catch (e) { netLive.err = e.message; }
+  if (Date.now() - netLive.wifiAt > 15e3) { netLive.wifiAt = Date.now(); netLive.wifi = await netWifi().catch(() => null); }
+}
+function netLiveTouch() {
+  netLive.until = Date.now() + 12e3;
+  if (netLive.timer) return;
+  const loop = async () => {
+    if (Date.now() > netLive.until) { netLive.timer = null; netLive.last = null; netLive.hist = []; return; }
+    await netSample(); netLive.timer = setTimeout(loop, 2000); netLive.timer.unref?.();
+  };
+  netLive.timer = setTimeout(loop, 0);
+}
 
 // ---------- 🎵 Musique de fond (mode radio : l'organisateur choisit, tout le monde entend la même chose) ----------
 fs.mkdirSync(MUSIC_DIR, { recursive: true });
@@ -1826,6 +1979,16 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(200, { 'Content-Type': 'application/gzip', 'Content-Length': pick.size,
           'Content-Disposition': `attachment; filename="le-cube-${pick.name}"`, 'Cache-Control': 'no-store' });
         return fs.createReadStream(path.join(BACKUPS, pick.name)).pipe(res);
+      }
+      if (action === 'cube-view') {                                                // 🧊 aperçu du cube (image)
+        const W = Math.min(800, Math.max(240, Math.round(+body.w || 480)));
+        const r = await cubeView(Math.abs(Math.floor(+body.corner || 0)) % 4, body.under ? 0 : 1, W);
+        const g = (await sql('select destroyed, size from public.game where id = 1')).rows[0];
+        return send(res, 200, { ...r, destroyed: +g.destroyed, total: g.size ** 3 });
+      }
+      if (action === 'net-live') {                                                 // 📶 débit réseau du PC
+        netLiveTouch();
+        return send(res, 200, { platform: process.platform, hist: netLive.hist, wifi: netLive.wifi, err: netLive.err });
       }
       if (action === 'cloudflared-info') {
         return send(res, 200, { shared: INSTANCE.tunnel === false, platform: process.platform, version: cfVer, required: CF_REQUIRED,

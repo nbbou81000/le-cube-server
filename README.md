@@ -234,7 +234,7 @@ If a new version adds a dependency (changes in `package.json`), delete the `node
 ## 10. Optional extras
 
 ### Admin dashboard (`/tableau/`)
-A separate statistics page (game, players, economy, chat, autopilot, security, devices, server, database explorer), plus a **🎛️ Control** tab to run the whole game from there: server restart/shutdown, backups, updates, access and sign-ups, player moderation, chat, rules, events, prices, recipes, treasure and prizes, autopilot, radio, e-mail and privacy settings. Only the Control tab changes anything, and only when you click.
+A separate statistics page (game, players, economy, chat, autopilot, security, devices, server, database explorer), a live **🧊 cube preview** (an image drawn by the server, any corner, top or bottom) and the server PC's **📶 network throughput** in real time (plus Wi-Fi signal and link speed on Windows), plus a **🎛️ Control** tab to run the whole game from there: server restart/shutdown, backups, updates, access and sign-ups, player moderation, chat, rules, events, prices, recipes, treasure and prizes, autopilot, radio, e-mail and privacy settings. Only the Control tab changes anything, and only when you click.
 1. 👑 › **Server** › **📈 Dashboard** › choose the file **`dashboard/tableau-de-bord.html`** from this repository.
 2. Open `https://your-address/tableau/` in the same browser where you are logged in as organizer.
 3. Protect it with Cloudflare Access (§8, point 4).

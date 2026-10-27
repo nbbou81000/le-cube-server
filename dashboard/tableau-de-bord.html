@@ -215,7 +215,28 @@ pre.code{background:var(--paper);border:1px solid var(--rule);border-radius:8px;
       <div class="sheet"><h3>En ce moment <small id="nowCount"></small></h3><ul class="list" id="nowList"></ul></div>
       <div class="sheet"><h3>Dernières nouvelles du cube</h3><ul class="list" id="actList"></ul></div>
     </div>
+    <div class="grid g2" style="margin-top:14px">
+      <div class="sheet"><h3>🧊 Le cube en ce moment <small id="cvWhen"></small></h3>
+        <div class="cv-wrap"><img id="cvImg" alt="Aperçu du cube" title="Toucher pour agrandir"><p class="muted" id="cvMsg">Chargement…</p></div>
+        <div class="acts" style="justify-content:center;flex-wrap:wrap">
+          <button class="btn ghost small" id="cvL" title="Tourner à gauche">⟲</button>
+          <button class="btn ghost small" id="cvU">⬇️ Dessous</button>
+          <button class="btn ghost small" id="cvR" title="Tourner à droite">⟳</button>
+          <button class="btn small" id="cvGo">🔄 Actualiser</button>
+          <label class="cv-auto"><input type="checkbox" id="cvAuto"> auto (30 s)</label>
+        </div>
+        <p class="note" style="margin:6px 0 0;text-align:center">Plus c’est sombre au fond d’un trou, plus il est profond. Image dessinée par ton PC (environ 0,3 s, ~10 Ko).</p>
+      </div>
+      <div class="sheet"><h3>📶 Réseau du PC serveur <small id="nwWhen"></small></h3>
+        <div class="nw-big"><div><span class="nw-ar">↓</span><b id="nwDown">…</b><small>Mbit/s reçus</small></div><div><span class="nw-ar up">↑</span><b id="nwUp">…</b><small>Mbit/s envoyés</small></div></div>
+        <div class="chart short"><canvas id="nwChart"></canvas></div>
+        <p class="note" id="nwScale" style="margin:4px 0 10px"></p>
+        <div id="nwWifi"><p class="muted">…</p></div>
+        <p class="note" style="margin:8px 0 0">Mesuré toutes les 2 s, seulement quand cette page est ouverte. C’est tout ce qui passe par le réseau du PC (jeu, tunnel, mises à jour Windows…), pas seulement le jeu.</p>
+      </div>
+    </div>
   </section>
+  <div id="cvBig" hidden><img alt="Aperçu du cube en grand"><p>Toucher pour fermer</p></div>
 
   <!-- ============ PARTIE ============ -->
   <section id="partie" hidden>
@@ -587,6 +608,88 @@ async function tick(force) {
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(true); });
 function start() { if (!token) return showLogin(); tick(true); }
+
+/* =============== 🧊 Aperçu du cube et 📶 réseau du PC (Vue d’ensemble) =============== */
+const CORNERS = ['coin avant droit', 'coin arrière droit', 'coin arrière gauche', 'coin avant gauche'];
+const CV = { corner: 0, under: false, auto: store.get('lc-cv-auto') === '1', busy: false, at: 0, png: null, err: null };
+const hhmmss = t => new Date(t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+async function cubeViewLoad() {
+  if (CV.busy) return; CV.busy = true;
+  $('cvGo').disabled = true; $('cvMsg').textContent = CV.png ? '' : 'Dessin du cube…';
+  try {
+    const r = await post('/api/admin/cube-view', { corner: CV.corner, under: CV.under, w: 640 });
+    CV.png = 'data:image/png;base64,' + r.png; CV.at = Date.now(); CV.err = null;
+    $('cvImg').src = CV.png; $('cvMsg').textContent = '';
+  } catch (e) { CV.err = e.message; CV.at = Date.now(); if (!CV.png) $('cvMsg').textContent = '⚠️ ' + e.message; }
+  CV.busy = false; $('cvGo').disabled = false; cubeViewCaption();
+}
+function cubeViewCaption() {
+  $('cvWhen').textContent = CV.at ? `${CORNERS[CV.corner]}, ${CV.under ? 'dessous' : 'dessus'} · ${CV.err ? 'échec à ' : 'vu à '}${hhmmss(CV.at)}` : '';
+  $('cvU').textContent = CV.under ? '⬆️ Dessus' : '⬇️ Dessous';
+}
+$('cvL').onclick = () => { CV.corner = (CV.corner + 3) % 4; cubeViewLoad(); };
+$('cvR').onclick = () => { CV.corner = (CV.corner + 1) % 4; cubeViewLoad(); };
+$('cvU').onclick = () => { CV.under = !CV.under; cubeViewLoad(); };
+$('cvGo').onclick = () => cubeViewLoad();
+$('cvAuto').checked = CV.auto;
+$('cvAuto').onchange = () => { CV.auto = $('cvAuto').checked; store.set('lc-cv-auto', CV.auto ? '1' : '0'); if (CV.auto) cubeViewLoad(); };
+$('cvImg').onclick = () => { if (!CV.png) return; $('cvBig').querySelector('img').src = CV.png; $('cvBig').hidden = false; };
+$('cvBig').onclick = () => { $('cvBig').hidden = true; };
+
+const NW = { hist: [], wifi: null, err: null, at: 0, busy: false };
+const mbit = b => b * 8 / 1e6, fmtMb = b => { const m = mbit(b); return m >= 100 ? Math.round(m).toString() : m >= 10 ? m.toFixed(1).replace('.', ',') : m.toFixed(2).replace('.', ','); };
+async function netLoad() {
+  if (NW.busy) return; NW.busy = true;
+  try { const r = await post('/api/admin/net-live', {}); NW.hist = r.hist || []; NW.wifi = r.wifi; NW.err = r.err; NW.plat = r.platform; NW.at = Date.now(); }
+  catch (e) { NW.err = e.message; }
+  NW.busy = false; netDraw();
+}
+function netDraw() {
+  const h = NW.hist, last = h[h.length - 1];
+  $('nwDown').textContent = last ? fmtMb(last.down) : '…'; $('nwUp').textContent = last ? fmtMb(last.up) : '…';
+  $('nwWhen').textContent = NW.err ? '⚠️ ' + NW.err : last ? 'en direct · ' + hhmmss(last.t) : 'mesure en cours…';
+  // courbe des 3 dernières minutes (deux lignes : reçu en couleur, envoyé en gris)
+  const cv = $('nwChart'), box = cv.parentElement, dpr = devicePixelRatio || 1, W = box.clientWidth, H = box.clientHeight || 120;
+  cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + 'px'; cv.style.height = H + 'px';
+  const ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+  const css = getComputedStyle(document.documentElement), col = n => css.getPropertyValue(n).trim();
+  const max = Math.max(0.1, ...h.map(p => Math.max(mbit(p.down), mbit(p.up)))) * 1.15, N = 90;
+  ctx.strokeStyle = col('--rule'); ctx.lineWidth = 1;
+  for (const f of [0.25, 0.5, 0.75]) { ctx.beginPath(); ctx.moveTo(0, H - f * H); ctx.lineTo(W, H - f * H); ctx.stroke(); }
+  const line = (key, c, fill) => {
+    if (h.length < 2) return;
+    ctx.beginPath();
+    h.forEach((p, i) => { const x = W - (h.length - 1 - i) * (W / (N - 1)), y = H - (mbit(p[key]) / max) * H; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+    ctx.strokeStyle = c; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.stroke();
+    if (fill) { ctx.lineTo(W, H); ctx.lineTo(W - (h.length - 1) * (W / (N - 1)), H); ctx.closePath(); ctx.globalAlpha = 0.15; ctx.fillStyle = c; ctx.fill(); ctx.globalAlpha = 1; }
+  };
+  line('up', col('--grey')); line('down', col('--accent'), true);
+  const pk = h.reduce((a, p) => Math.max(a, p.down), 0), pu = h.reduce((a, p) => Math.max(a, p.up), 0);
+  $('nwScale').textContent = h.length > 1 ? `3 dernières minutes · haut de la courbe : ${fmtMb(max / 8 * 1e6)} Mbit/s · pointes : ↓ ${fmtMb(pk)} · ↑ ${fmtMb(pu)} Mbit/s` : '';
+  // infos Wi-Fi
+  const w = NW.wifi, el = $('nwWifi');
+  if (!w) el.innerHTML = NW.plat && NW.plat !== 'win32' && NW.plat !== 'linux' ? '<p class="muted">Infos Wi-Fi non disponibles sur ce système.</p>' : '<p class="muted">Lecture des infos Wi-Fi…</p>';
+  else if (w.locked) el.innerHTML = '<p class="muted">📶 Windows cache les infos Wi-Fi (nom, signal) tant que la <b>localisation</b> est coupée : Paramètres › Confidentialité et sécurité › Localisation › activer « Services de localisation » et « Autoriser les applications de bureau à accéder à votre localisation ». Le débit ci-dessus fonctionne sans.</p>';
+  else if (w.none) el.innerHTML = '<p class="muted">🔌 Pas de Wi-Fi connecté : le PC est sans doute branché en câble (le débit ci-dessus reste juste).</p>';
+  else {
+    const sig = w.signal ?? null, bars = sig == null ? 0 : sig >= 80 ? 4 : sig >= 60 ? 3 : sig >= 40 ? 2 : 1;
+    const q = sig == null ? '' : sig >= 80 ? 'excellent' : sig >= 60 ? 'bon' : sig >= 40 ? 'moyen' : 'faible';
+    const rows = [
+      ['Réseau', esc(w.ssid || w.name || '—')],
+      ['Signal', sig == null ? '—' : `<span class="nw-bars">${[1, 2, 3, 4].map(k => `<i class="${k <= bars ? 'on' : ''}" style="height:${k * 4}px"></i>`).join('')}</span>${sig} % (${q})`],
+      ...(w.rxRate ? [['Vitesse de liaison', `${String(w.rxRate).replace('.', ',')} ↓ / ${String(w.txRate ?? '—').replace('.', ',')} ↑ Mbit/s`]] : []),
+      ...(w.band || w.channel ? [['Bande', esc([w.band, w.channel && 'canal ' + w.channel].filter(Boolean).join(' · '))]] : []),
+      ...(w.radio ? [['Norme', esc(w.radio)]] : [])];
+    el.innerHTML = `<dl class="kv">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>`
+      + (w.rxRate ? '<p class="note" style="margin:4px 0 0">La vitesse de liaison est le maximum possible entre le PC et la box ; le débit réel est en haut.</p>' : '');
+  }
+}
+// boucles : seulement quand la Vue d’ensemble est affichée, la page visible et pas en pause
+setInterval(() => {
+  if (!token || $('main').hidden || $('apercu').hidden || document.hidden || paused) return;
+  netLoad();
+  if (!CV.at || (CV.auto && Date.now() - CV.at > 30e3)) cubeViewLoad();
+}, 2000);
 
 /* =============== Affichage =============== */
 function render() {
@@ -1225,6 +1328,22 @@ textarea.tx{min-height:64px;resize:vertical;font-family:inherit}
 #ctlToast.on{opacity:1}
 #ctlToast.bad{background:var(--clay);color:#fff}
 .note{font-size:.84rem;color:var(--ink2);margin:0 0 10px}
+.cv-wrap{position:relative;display:grid;place-items:center;min-height:240px;border-radius:8px;background:radial-gradient(circle at 50% 40%,var(--paper),var(--rule))}
+.cv-wrap img{display:block;width:100%;max-width:420px;height:auto;cursor:zoom-in}
+.cv-wrap img:not([src]){display:none}
+.cv-wrap p{position:absolute;margin:0}
+.cv-auto{display:inline-flex;align-items:center;gap:5px;font-size:.85rem;color:var(--ink2)}
+#cvBig{position:fixed;inset:0;z-index:50;background:#000d;display:grid;place-items:center;padding:16px;cursor:zoom-out}
+#cvBig[hidden]{display:none}
+#cvBig img{max-width:100%;max-height:85vh}
+#cvBig p{color:#fff9;margin:6px 0 0;font-size:.85rem;text-align:center}
+.nw-big{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 10px}
+.nw-big>div{border:1px solid var(--rule);border-radius:10px;padding:10px 12px;background:var(--paper)}
+.nw-big b{font-size:1.9rem;font-variant-numeric:tabular-nums;margin-left:4px}
+.nw-big small{display:block;color:var(--ink2);font-size:.8rem}
+.nw-ar{font-size:1.4rem;color:var(--accent)}.nw-ar.up{color:var(--grey)}
+.nw-bars{display:inline-flex;gap:2px;align-items:flex-end;height:16px;vertical-align:-2px;margin-right:6px}
+.nw-bars i{display:block;width:4px;background:var(--rule2);border-radius:1px}.nw-bars i.on{background:var(--accent)}
 .cbox{border:1px solid var(--rule);border-radius:10px;padding:12px;background:var(--paper)}
 .cbox label{font-size:.88rem;margin:3px 0}
 .cbox input[type=number]{padding:5px 8px;border:1px solid var(--rule2);border-radius:8px;background:var(--paper)}
