@@ -8,7 +8,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='4' y='10' width='56' height='44' rx='8' fill='%23f0603f'/><rect x='11' y='17' width='42' height='30' rx='3' fill='%23fbf8f1'/><rect x='16' y='34' width='6' height='9' fill='%232b2722'/><rect x='26' y='26' width='6' height='17' fill='%232b2722'/><rect x='36' y='30' width='6' height='13' fill='%232b2722'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..900&family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 /* Même habillage que le « Palmarès des créateurs TRMNL » : papier, encre, accent orange, police Archivo */
@@ -169,6 +169,144 @@ pre.code{background:var(--paper);border:1px solid var(--rule);border-radius:8px;
 .frow select,.frow input{padding:6px 9px;border:1px solid var(--rule2);border-radius:8px;background:var(--paper);min-width:0}
 .frow input{flex:1;min-width:140px}
 .cellv{white-space:pre-wrap;overflow-wrap:anywhere;margin:6px 0 0}
+
+/* ================= 🎨 Thème « Terminal » (sombre, police à chasse fixe, animé) ================= */
+html:not([data-skin="terminal"]) .t-only{display:none!important}
+:root[data-skin="terminal"]{
+  color-scheme:dark;
+  --paper:#0e0d0d; --sheet:#131214; --ink:#ebe6e1; --ink2:#8a898b; --rule:#232124; --rule2:#302d2f;
+  --grey:#636164; --accent:#e47d57; --accent2:#f0a07c; --accent-soft:#2a1813; --accent-ink:#f0946d; --on-accent:#160d09;
+  --sage:#9cb56f; --indigo:#7f9ce0; --mustard:#d9b46a; --sky:#79b2d6; --plum:#ad94c8; --clay:#e0675a;
+  --star:#d9bb88; --dim:#626163;
+  --font:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+[data-skin="terminal"] .p-only{display:none!important}
+[data-skin="terminal"] body{border-top:0;font-size:.9rem;line-height:1.5;
+  background:radial-gradient(900px 520px at 8% -8%,rgba(228,125,87,.10),transparent 62%),
+    linear-gradient(rgba(255,255,255,.016) 1px,transparent 1px) 0 0/28px 28px,
+    linear-gradient(90deg,rgba(255,255,255,.016) 1px,transparent 1px) 0 0/28px 28px,var(--paper)}
+[data-skin="terminal"] ::selection{background:rgba(228,125,87,.35)}
+/* en-tête et onglets */
+[data-skin="terminal"] .mark{width:34px;height:34px;border-radius:9px;background:#191615 var(--pxcube) center/24px no-repeat;border:1px solid #2a2522;box-shadow:0 0 18px rgba(228,125,87,.18)}
+[data-skin="terminal"] .mark>span{display:none}
+[data-skin="terminal"] .brand b{font-stretch:100%;text-transform:uppercase;letter-spacing:.07em;font-size:.95rem;font-weight:800}
+[data-skin="terminal"] .brand small{font-size:.74rem;color:var(--dim)}
+[data-skin="terminal"] .updated{font-size:.74rem}
+[data-skin="terminal"] .theme-btn{background:var(--sheet);border-color:var(--rule2);border-radius:6px;font-size:.74rem}
+[data-skin="terminal"] nav.tabs{background:rgba(14,13,13,.86);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-bottom-color:var(--rule)}
+[data-skin="terminal"] nav.tabs a{font-stretch:100%;font-weight:700;font-size:.7rem;text-transform:uppercase;letter-spacing:.12em;padding:13px 11px 10px;border-bottom-width:2px}
+[data-skin="terminal"] nav.tabs a[aria-current="page"]{color:var(--accent)}
+[data-skin="terminal"] h2{font-stretch:100%;text-transform:uppercase;letter-spacing:.06em;font-size:1.05rem;font-weight:800}
+[data-skin="terminal"] p.lead{font-size:.8rem}
+/* panneaux : une couleur par panneau (--cat), titres en petites capitales espacées */
+[data-skin="terminal"] .sheet{background:var(--sheet);border:1px solid #1f1d1f;border-radius:12px;padding:15px 16px;box-shadow:0 1px 0 rgba(255,255,255,.02) inset;transition:opacity .5s,filter .5s}
+[data-skin="terminal"] .sheet h3{color:var(--cat,var(--accent));text-transform:uppercase;letter-spacing:.14em;font-size:.72rem;font-weight:800;margin-bottom:12px}
+[data-skin="terminal"] .sheet h3 small{color:var(--dim);text-transform:none;letter-spacing:.02em;font-size:.7rem;font-weight:400}
+[data-skin="terminal"] .note,[data-skin="terminal"] .muted{color:var(--ink2)}
+[data-skin="terminal"] .note{font-size:.74rem}
+/* lignes de liste : icône pixel, numéro « 01 », valeur à droite en jaune */
+[data-skin="terminal"] .list{counter-reset:trow}
+[data-skin="terminal"] .list li{counter-increment:trow;border-bottom:0;padding:7px 8px;margin:1px -8px;border-radius:9px;gap:12px;align-items:center;font-size:.82rem;
+  border:1px solid transparent;transition:background .35s,border-color .35s,box-shadow .35s}
+[data-skin="terminal"] .list li:not(.empty)::before{content:"";flex:none;align-self:flex-start;width:26px;height:26px;border-radius:7px;background:var(--icb,#e37240) var(--pxcube) center/18px no-repeat;box-shadow:0 0 0 1px rgba(0,0,0,.35) inset;transition:filter .5s}
+[data-skin="terminal"] .list li>span:first-child{flex:1}
+[data-skin="terminal"] .list li:not(.empty)>span:first-child::before{content:counter(trow,decimal-leading-zero) " ";color:var(--dim)}
+[data-skin="terminal"] .list li>span:last-child{color:var(--star);font-size:.74rem}
+[data-skin="terminal"] .list li b{color:#f3efeb}
+[data-skin="terminal"] .dot{background:var(--cat,var(--sage));border-radius:2px;width:7px;height:7px}
+/* tuiles */
+[data-skin="terminal"] .tile{background:var(--sheet);border:1px solid #1f1d1f;border-top:1px solid #1f1d1f;border-radius:10px;padding:11px 12px;transition:background .35s,border-color .35s,box-shadow .35s,opacity .5s}
+[data-skin="terminal"] .tile .lbl{text-transform:uppercase;letter-spacing:.12em;font-size:.62rem;color:var(--dim);font-weight:700}
+[data-skin="terminal"] .tile .lbl::before{content:"";display:inline-block;width:7px;height:7px;border-radius:2px;background:var(--c,var(--accent));margin-right:7px;vertical-align:.05em}
+[data-skin="terminal"] .tile .rv{font-stretch:100%;font-weight:800;font-size:1.35rem;color:#f3efeb;letter-spacing:-.01em}
+[data-skin="terminal"] .tile .rv small{font-size:.7rem;color:var(--dim)}
+[data-skin="terminal"] .tile .val{font-size:.7rem;color:var(--ink2)}
+[data-skin="terminal"] .tile .pc{height:3px;background:#232124}
+[data-skin="terminal"] .tile .pc i,[data-skin="terminal"] .bar i{box-shadow:0 0 8px var(--c,var(--accent))}
+[data-skin="terminal"] .bar{height:5px;background:#232124}
+[data-skin="terminal"] .chip{border-radius:4px;font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;background:transparent;border-width:1px}
+/* tableaux, boutons, champs */
+[data-skin="terminal"] table{font-stretch:100%;font-size:.78rem}
+[data-skin="terminal"] th{text-transform:uppercase;letter-spacing:.1em;font-size:.62rem;color:var(--dim);background:var(--sheet)}
+[data-skin="terminal"] th,[data-skin="terminal"] td{border-bottom-color:#1d1b1d}
+[data-skin="terminal"] tr{transition:background .35s,box-shadow .35s}
+[data-skin="terminal"] .btn{border-radius:7px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:.74rem}
+[data-skin="terminal"] .btn.ghost{background:#171517;border:1px solid var(--rule2)}
+[data-skin="terminal"] input,[data-skin="terminal"] select,[data-skin="terminal"] textarea{background:#0e0d0d;color:var(--ink);border-color:var(--rule2)}
+[data-skin="terminal"] .seg button{border-radius:6px;font-size:.74rem;background:#171517;border-width:1px}
+[data-skin="terminal"] .seg button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+[data-skin="terminal"] .kv{font-size:.8rem}
+[data-skin="terminal"] .cnav button{border-radius:7px;border-width:1px;background:#171517;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding:7px 12px}
+[data-skin="terminal"] .cnav button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+[data-skin="terminal"] .big-bar,[data-skin="terminal"] .heat i{border-radius:2px}
+[data-skin="terminal"] footer{border:1px solid #1f1d1f;border-radius:12px;background:var(--sheet);margin:0 auto 40px;max-width:1148px;font-size:.74rem;padding:14px 16px}
+[data-skin="terminal"] footer::before{content:"comment c’est mesuré";display:block;text-transform:uppercase;letter-spacing:.14em;font-size:.6rem;color:var(--dim);margin-bottom:6px}
+/* en-tête de la Vue d’ensemble, comme dans la vidéo */
+.t-hero{display:grid;grid-template-columns:auto minmax(0,1fr) minmax(0,260px);gap:18px;align-items:start;margin:2px 0 16px}
+@media(max-width:760px){.t-hero{grid-template-columns:auto minmax(0,1fr)}.t-legend{grid-column:1/-1}}
+.t-ic{width:64px;height:64px;border-radius:15px;background:#191615 var(--pxcube) center/46px no-repeat;border:1px solid #2a2522;box-shadow:0 0 28px rgba(228,125,87,.22),0 0 0 1px rgba(0,0,0,.4) inset}
+.t-main h2{margin:4px 0 6px!important;font-size:clamp(1.05rem,3.2vw,1.45rem)!important;letter-spacing:.05em!important;line-height:1.2;color:#f6f1ec}
+.t-main em,.t-sub em,.t-tag b{font-style:normal;color:var(--accent)}
+.t-sub{margin:0 0 10px;font-size:clamp(.8rem,2.3vw,.98rem);color:#e7e1db}
+.t-sub::after{content:"";display:inline-block;width:.55em;height:1.05em;background:var(--accent);vertical-align:-.17em;margin-left:5px;animation:tBlink 1.05s steps(1) infinite}
+@keyframes tBlink{50%{opacity:0}}
+.t-tag{margin:3px 0;font-size:.62rem;text-transform:uppercase;letter-spacing:.14em;color:var(--dim)}
+.t-tag::before{content:"";display:inline-block;width:8px;height:8px;border:1.5px solid var(--dim);border-radius:50%;margin-right:9px;vertical-align:-.05em}
+.t-tag.o{color:#b9775a}.t-tag.o::before{border-color:var(--accent)}
+.t-tag b{color:#d8d2cc;letter-spacing:.06em;margin-right:6px}
+.t-legend{border:1px solid #1f1d1f;border-radius:12px;background:var(--sheet);padding:11px 12px}
+.t-legend .hd{display:flex;justify-content:space-between;font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:0 2px 7px}
+.t-legend .hd b{color:var(--accent);font-weight:700}
+.t-legend .lr{display:grid;grid-template-columns:10px minmax(0,1fr) 42px 40px;gap:8px;align-items:center;font-size:.66rem;letter-spacing:.06em;text-transform:uppercase;color:#cfc9c3;padding:3px 5px;border-radius:5px;border:1px solid transparent;transition:background .35s,border-color .35s}
+.t-legend .lr i{width:8px;height:8px;border-radius:2px;background:var(--cat)}
+.t-legend .lr span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.t-legend .lr u{display:block;height:3px;border-radius:2px;background:#232124;text-decoration:none;overflow:hidden}
+.t-legend .lr u s{display:block;height:100%;background:var(--cat);text-decoration:none;box-shadow:0 0 6px var(--cat)}
+.t-legend .lr .v{text-align:right;color:var(--dim);text-transform:none}
+.t-legend .lr.on{background:#1b1c24;border-color:#36384a}
+.t-legend .lr.on .v{color:#cfc9c3}
+.t-segs{display:flex;gap:9px;align-items:center;border:1px solid #1f1d1f;border-radius:12px;background:var(--sheet);padding:9px 12px;margin:0 0 16px}
+.t-segs .lb{flex:none;font-size:.6rem;line-height:1.35;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-right:6px}
+.t-segs .lb b{color:#e7e1db;font-weight:700}
+.t-segs .sg{position:relative;flex:1;min-width:0;height:22px;border-radius:5px;background:color-mix(in srgb,var(--cat) 16%,#141214);overflow:hidden;border:1px solid transparent;transition:border-color .35s,box-shadow .35s}
+.t-segs .sg .f{position:absolute;inset:0 auto 0 0;background:var(--cat);opacity:.82}
+.t-segs .sg span{position:relative;display:block;padding:0 7px;font-size:.6rem;line-height:20px;letter-spacing:.06em;color:#140d09;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;mix-blend-mode:normal}
+.t-segs .sg.lt span{color:var(--cat)}
+.t-segs .sg.on{border-color:rgba(255,255,255,.75);box-shadow:0 0 12px color-mix(in srgb,var(--cat) 45%,transparent)}
+.t-segs .sg.on::after{content:"";position:absolute;left:0;bottom:0;height:2px;background:#fff;animation:tSweep var(--spot,3.4s) linear forwards}
+@keyframes tSweep{from{width:0}to{width:100%}}
+@media(max-width:620px){.t-segs{flex-wrap:wrap}.t-segs .lb{width:100%}.t-segs .sg{flex-basis:calc(20% - 8px)}.t-segs .sg span{font-size:.52rem;padding:0 4px}}
+.t-check{border:1px solid color-mix(in srgb,var(--accent) 45%,#1f1d1f);border-radius:12px;background:var(--sheet);padding:14px 16px;transition:border-style .3s}
+.t-check.done{border-style:dashed;border-color:var(--accent)}
+.t-check h3{color:var(--accent)!important;text-transform:uppercase;letter-spacing:.14em;font-size:.72rem;font-weight:800;margin-bottom:12px}
+.t-check h3 small{color:var(--dim);text-transform:none;letter-spacing:.02em;font-size:.7rem;font-weight:400}
+.t-check ul{list-style:none;margin:0;padding:0}
+.t-check li{display:flex;gap:12px;align-items:center;padding:7px 8px;margin:0 -8px;font-size:.8rem;border-radius:9px;border:1px solid transparent;transition:background .35s,border-color .35s}
+.t-check li b{color:#f3efeb}
+.t-check li .box{flex:none;width:16px;height:16px;border:1.5px solid #4a3a33;border-radius:4px;display:grid;place-items:center;font-size:.7rem;font-weight:800;line-height:1}
+.t-check li.ok .box.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.t-check li.ko .box.on{background:var(--clay);border-color:var(--clay);color:#fff}
+.t-check li.ko span{color:#f0a198}
+.t-check li span{color:var(--ink2)}
+.t-note{border:1px solid #1f1d1f;border-radius:12px;background:var(--sheet);padding:14px 16px;font-size:.78rem;color:#cfc9c3}
+.t-note .hd{text-transform:uppercase;letter-spacing:.14em;font-size:.6rem;color:var(--dim);margin-bottom:6px}
+.t-note b{color:var(--accent)}
+/* 🔦 le projecteur qui se promène, comme dans la vidéo */
+.t-spot .sheet:not(.t-on),.t-spot .tiles:not(.t-on) .tile{opacity:.66;filter:saturate(.55)}
+.t-focus{background:color-mix(in srgb,var(--cat,var(--accent)) 7%,transparent)!important;border-color:color-mix(in srgb,var(--cat,var(--accent)) 60%,transparent)!important;
+  box-shadow:inset 3px 0 0 var(--cat,var(--accent)),0 0 16px color-mix(in srgb,var(--cat,var(--accent)) 16%,transparent)!important}
+tr.t-focus td{background:color-mix(in srgb,var(--cat,var(--accent)) 8%,transparent)}
+tr.t-focus td:first-child{box-shadow:inset 3px 0 0 var(--cat,var(--accent))}
+/* ✨ arrivée : panneaux puis lignes une à une (frappe), chiffres qui défilent, barres qui se remplissent */
+.t-intro .sheet,.t-intro .t-hero,.t-intro .t-segs,.t-intro .t-legend{animation:tIn .55s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(var(--i,0) * 110ms)}
+.t-intro .sheet .list li,.t-intro .sheet tr,.t-intro .tile,.t-intro .t-legend .lr,.t-intro .t-check li{animation:tType .5s steps(14) both;animation-delay:calc(var(--i,0) * 110ms + 200ms + var(--j,0) * 85ms)}
+.t-intro .tile .pc i,.t-intro .bar i,.t-intro .t-legend .lr u s,.t-intro .t-segs .sg .f{animation:tGrow 1.1s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(var(--i,0) * 110ms + 300ms);transform-origin:left}
+.t-intro .t-check li .box.on{animation:tTick .3s both;animation-delay:calc(1.4s + var(--j,0) * 420ms)}
+@keyframes tIn{from{opacity:0;transform:translateY(8px)}}
+@keyframes tType{from{clip-path:inset(0 100% 0 0);opacity:.2}to{clip-path:inset(0 0 0 0);opacity:1}}
+@keyframes tGrow{from{transform:scaleX(0)}}
+@keyframes tTick{from{background:transparent;border-color:#4a3a33;color:transparent;transform:scale(.6)}60%{transform:scale(1.15)}}
+@media (prefers-reduced-motion:reduce){.t-intro *{animation:none!important}.t-sub::after{animation:none}.t-segs .sg.on::after{animation:none;width:100%}.t-spot .sheet,.t-spot .tile{opacity:1!important;filter:none!important}}
 </style>
 </head>
 <body>
@@ -179,7 +317,7 @@ pre.code{background:var(--paper);border:1px solid var(--rule);border-radius:8px;
   </a>
   <div class="updated"><span id="liveTxt"><span class="live off"></span>Connexion…</span>
     <button class="theme-btn" id="bPause" type="button">⏸ Pause</button>
-    <button class="theme-btn" id="bTheme" type="button">🌗 Thème</button></div>
+    <select class="theme-btn" id="bTheme" aria-label="Thème du tableau de bord"><option value="auto">🌗 Papier (auto)</option><option value="light">☀️ Papier clair</option><option value="dark">🌙 Papier sombre</option><option value="terminal">▮ Terminal</option></select></div>
 </header>
 <div class="banner" id="banner"></div>
 <nav class="tabs" id="nav" hidden><div class="in">
@@ -203,9 +341,15 @@ pre.code{background:var(--paper);border:1px solid var(--rule);border-radius:8px;
 <main id="main" hidden>
   <!-- ============ VUE D'ENSEMBLE ============ -->
   <section id="apercu">
-    <div class="welcome"><h2 id="wTitle">Le cube</h2><p class="lead" id="wLead"></p></div>
-    <div class="big-bar"><i id="wBar" style="width:0"></i></div>
-    <p class="muted" id="wBarTxt" style="margin:0 0 18px"></p>
+    <div class="t-only t-hero">
+      <div class="t-ic" aria-hidden="true"></div>
+      <div class="t-main"><h2 id="tTitle"></h2><p class="t-sub" id="tSub"></p><p class="t-tag o" id="tTag1"></p><p class="t-tag" id="tTag2"></p></div>
+      <div class="t-legend" id="tLegend"></div>
+    </div>
+    <div class="t-only t-segs" id="tSegs"></div>
+    <div class="welcome p-only"><h2 id="wTitle">Le cube</h2><p class="lead" id="wLead"></p></div>
+    <div class="big-bar p-only"><i id="wBar" style="width:0"></i></div>
+    <p class="muted p-only" id="wBarTxt" style="margin:0 0 18px"></p>
     <div class="tiles" id="ovTiles"></div>
     <div class="grid g2" style="margin-top:14px">
       <div class="sheet"><h3>Joueurs en ligne <small>24 dernières heures</small></h3><div class="chart"><canvas id="cOnline"></canvas></div></div>
@@ -234,6 +378,10 @@ pre.code{background:var(--paper);border:1px solid var(--rule);border-radius:8px;
         <div id="nwWifi"><p class="muted">…</p></div>
         <p class="note" style="margin:8px 0 0">Mesuré toutes les 2 s, seulement quand cette page est ouverte. C’est tout ce qui passe par le réseau du PC (jeu, tunnel, mises à jour Windows…), pas seulement le jeu.</p>
       </div>
+    </div>
+    <div class="t-only grid g2" style="margin-top:14px">
+      <div class="t-check" id="tCheck"></div>
+      <div class="t-note" id="tNote"></div>
     </div>
   </section>
   <div id="cvBig" hidden><img alt="Aperçu du cube en grand"><p>Toucher pour fermer</p></div>
@@ -561,20 +709,26 @@ function route() {
   if (t === 'controle' && typeof CTL !== 'undefined') CTL.shown = null;
   document.querySelectorAll('nav.tabs a').forEach(a => a.setAttribute('aria-current', a.getAttribute('href') === '#' + t ? 'page' : 'false'));
   render();
+  skinIntro();
   setTimeout(() => Object.values(charts).forEach(c => c.resize()), 0);
 }
 addEventListener('hashchange', route);
 
 /* =============== Thème =============== */
-const THEMES = ['auto', 'light', 'dark'];
+// 🎨 Papier (auto / clair / sombre, l’habillage d’origine) ou Terminal (sombre, chasse fixe, animé)
+const THEMES = ['auto', 'light', 'dark', 'terminal'];
 let theme = THEMES.includes(store.get('lc-dash-theme')) ? store.get('lc-dash-theme') : 'auto';
 function applyTheme() {
-  if (theme === 'auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = theme;
-  $('bTheme').textContent = { auto: '🌗 Auto', light: '☀️ Clair', dark: '🌙 Sombre' }[theme];
+  const de = document.documentElement, term = theme === 'terminal';
+  if (term) { de.dataset.skin = 'terminal'; de.dataset.theme = 'dark'; }
+  else { delete de.dataset.skin; if (theme === 'auto') delete de.dataset.theme; else de.dataset.theme = theme; }
+  $('bTheme').value = theme;
   for (const id in charts) { charts[id].destroy(); delete charts[id]; }
   render();
+  if (term) skinIntro(); else spotClear();
+  if (typeof netDraw === 'function' && NW.at) netDraw();
 }
-$('bTheme').onclick = () => { theme = THEMES[(THEMES.indexOf(theme) + 1) % 3]; store.set('lc-dash-theme', theme); applyTheme(); };
+$('bTheme').onchange = () => { theme = $('bTheme').value; store.set('lc-dash-theme', theme); applyTheme(); };
 matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => theme === 'auto' && applyTheme());
 
 /* =============== Données en direct =============== */
@@ -691,12 +845,167 @@ setInterval(() => {
   if (!CV.at || (CV.auto && Date.now() - CV.at > 30e3)) cubeViewLoad();
 }, 2000);
 
+/* =============== 🎨 Thème « Terminal » : icône pixel, couleurs par panneau, arrivée animée, projecteur =============== */
+const TCATS = [['#e47d57', '#e37240'], ['#7f9ce0', '#7687bf'], ['#9cb56f', '#97b659'], ['#ad94c8', '#ba729b'], ['#d9bb88', '#e9b04f']];
+const isTerm = () => document.documentElement.dataset.skin === 'terminal';
+const calm = matchMedia('(prefers-reduced-motion: reduce)');
+const curSection = () => $(TABS.find(id => !$(id).hidden) || 'apercu');
+// icône : un petit cube en pixels (dessin original), calculé face par face sur une grille 16 × 16, servi comme image CSS (--pxcube)
+(() => {
+  const N = 16, inPoly = (x, y, P) => { let c = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) { const [xi, yi] = P[i], [xj, yj] = P[j];
+    if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c; } return c; };
+  const TOP = [[8, 1], [15, 4.6], [8, 8.2], [1, 4.6]], LEFT = [[1, 4.6], [8, 8.2], [8, 15.2], [1, 11.6]], RIGHT = [[8, 8.2], [15, 4.6], [15, 11.6], [8, 15.2]];
+  const face = (x, y) => { const X = x + .5, Y = y + .5; return inPoly(X, Y, TOP) ? 't' : inPoly(X, Y, LEFT) ? 'l' : inPoly(X, Y, RIGHT) ? 'r' : ''; };
+  const C = { o: '#2b1309', t: '#ffbf86', h: '#ffe9d2', l: '#f07a3c', r: '#b94f25', k: '#6e2b12', g: '#ffd2a8' };
+  const crack = new Set(['10,9', '11,10', '11,11', '12,12', '10,12', '4,10', '5,11']), shine = new Set(['7,2', '8,2', '5,3', '6,3']);
+  let r = '';
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const f = face(x, y); if (!f) continue;
+    const edge = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => !face(x + dx, y + dy));
+    const c = edge ? 'o' : crack.has(x + ',' + y) ? 'k' : shine.has(x + ',' + y) ? 'h' : f;
+    r += `<rect x='${x}' y='${y}' width='1.03' height='1.03' fill='${C[c]}'/>`;
+  }
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'>${r}</svg>`;
+  document.documentElement.style.setProperty('--pxcube', `url("data:image/svg+xml,${encodeURIComponent(svg)}")`);
+})();
+const fK = n => { n = +n || 0; return n >= 1e6 ? NF1.format(n / 1e6) + 'M' : n >= 1e4 ? fmt(n / 1e3) + 'k' : n >= 1e3 ? NF1.format(n / 1e3) + 'k' : fmt(n); };
+function termOverview({ g, T, D, left, perDay, eta, ps }) {
+  if (!isTerm()) return;
+  const P = pct(D, T);
+  $('tTitle').innerHTML = `Le cube ${g.size}³ · <em>${fmt1(P)} %</em> détruit`;
+  $('tSub').innerHTML = `<em>${fmt(left)}</em> blocs avant le trésor. <em>${fmt(M.online)}</em> joueur${M.online > 1 ? 's' : ''} en ligne`;
+  $('tTag1').textContent = 'joueurs · coups · nouvelles · cube · réseau';
+  $('tTag2').innerHTML = perDay > 0 ? `<b>${fK(perDay)}</b>blocs par jour · ${eta > 3650 ? 'fin dans plus de 10 ans' : eta > 90 ? `fin dans ${fmt(eta / 30)} mois` : `fin dans ${fmt(Math.max(1, eta))} jours`}` : `<b>${fK(D)}</b>blocs cassés depuis le début`;
+  // les 5 meilleurs de la semaine (comme les « 5 catégories » de la vidéo)
+  const wk = ps.map(p => [p.pseudo, +(p.week_blocks ?? 0)]).filter(x => x[1] > 0).sort((a, b) => b[1] - a[1]);
+  const top = (wk.length ? wk : ps.map(p => [p.pseudo, +(p.blocks ?? 0)]).sort((a, b) => b[1] - a[1])).slice(0, 5), mx = Math.max(1, ...top.map(x => x[1]));
+  $('tLegend').innerHTML = `<div class="hd"><span>${top.length || 5} meilleurs · ${wk.length ? 'semaine' : 'total'}</span><b>blocs</b></div>`
+    + (top.length ? top.map(([n, v], k) => `<div class="lr" style="--cat:${TCATS[k][0]}"><i></i><span>${esc(n)}</span><u><s style="width:${(100 * v / mx).toFixed(1)}%"></s></u><span class="v">${fK(v)}</span></div>`).join('')
+      : '<div class="lr" style="--cat:#636164"><i></i><span>personne encore</span><u></u><span class="v">0</span></div>');
+  // avancement par groupes de couches (comme la barre en 5 segments de la vidéo)
+  const s = g.size || 0, NL = Math.ceil(s / 2), lay = new Map((G.layers || []).map(l => [l.d, +l.n])), per = Math.max(1, Math.ceil(NL / 5));
+  let segs = '';
+  for (let k = 0; k < 5; k++) {
+    const a = k * per, b = Math.min(NL, a + per) - 1; if (a > b) break;
+    let tot = 0, got = 0;
+    for (let d = a; d <= b; d++) { const x = s - 2 * d, y = Math.max(0, x - 2), t = x ** 3 - y ** 3; tot += t; got += Math.min(t, lay.get(d) || (d < (g.peeled || 0) ? t : 0)); }
+    const f = pct(got, tot);
+    segs += `<div class="sg ${f < 35 ? 'lt' : ''}" style="--cat:${TCATS[k][0]}" title="Couches ${a} à ${b} : ${fmt1(f)} % détruit"><div class="f" style="width:${f.toFixed(2)}%"></div><span>${String(a).padStart(2, '0')}–${String(b).padStart(2, '0')}${f >= 1 ? ' · ' + fmt(f) + ' %' : ''}</span></div>`;
+  }
+  $('tSegs').innerHTML = `<div class="lb"><b>${fK(T)}</b> blocs<br><b>${NL}</b> couches</div>` + segs;
+  // la liste « tout va bien ? » (comme « start with 3, not 20 ») : cochée une à une à l’arrivée
+  const lastBk = M.last_backup?.at || (M.backups || []).slice(-1)[0]?.at, bkH = lastBk ? (Date.now() - new Date(lastBk)) / 36e5 : Infinity;
+  const memP = M.mem ? pct(M.mem.total - M.mem.free, M.mem.total) : 0, dk = M.disk;
+  const checks = [
+    [!!M.tunnel?.ok, 'tunnel en ligne', M.tunnel?.ok ? 'le jeu est joignable de partout' : 'coupé : le jeu n’est plus joignable de l’extérieur'],
+    [bkH < 26, 'sauvegarde récente', lastBk ? `la dernière date d’${ago(lastBk).replace('il y a ', '')}` : 'aucune sauvegarde trouvée'],
+    [(M.cpu_pct || 0) < 85 && memP < 92, 'processeur et mémoire', `${fmt(M.cpu_pct)} % et ${fmt(memP)} % utilisés`],
+    [!dk || (dk.free > 5e9 && dk.free / dk.total > .05), 'place sur le disque', dk ? `${bytes(dk.free)} libres` : 'inconnue'],
+  ];
+  const allOk = checks.every(c => c[0]), sig = checks.map(c => +c[0]).join('');
+  const el = $('tCheck');
+  if (el.dataset.sig !== sig) {          // on ne redessine que si un état change (sinon l’animation recommencerait)
+    el.dataset.sig = sig;
+    el.innerHTML = `<h3>${allOk ? 'tout va bien' : 'à surveiller'}<small>vérifié toutes les 5 s</small></h3><ul>${checks.map(([ok, a, b], j) =>
+      `<li class="${ok ? 'ok' : 'ko'}" style="--j:${j}"><span class="box on">${ok ? '✓' : '✗'}</span><b>${a}</b><span>· ${esc(b)}</span></li>`).join('')}</ul>`;
+    el.classList.toggle('done', allOk);
+  } else el.querySelectorAll('li').forEach((li, j) => { li.lastElementChild.textContent = '· ' + checks[j][2]; });
+  $('tNote').innerHTML = `<div class="hd">comment c’est compté</div>le cube compte <b>${fmt(T)}</b> blocs répartis en <b>${NL}</b> couches ; ${fmt(D)} sont déjà cassés.
+    le classement prend les blocs cassés depuis lundi, et la barre en couleurs montre l’avancée de chaque groupe de couches, de la surface (00) jusqu’au cœur.`;
+}
+// une couleur par panneau, dans l’ordre de la page
+function skinDecorate(sec) {
+  if (!isTerm() || !sec) return;
+  sec.querySelectorAll('.sheet, .tiles').forEach((el, k) => { const [c, b] = TCATS[k % 5]; el.style.setProperty('--cat', c); el.style.setProperty('--icb', b); });
+  $('tCheck')?.style.setProperty('--cat', TCATS[0][0]);
+}
+// ✨ arrivée : panneaux, puis lignes « tapées » une à une, chiffres qui défilent, barres qui se remplissent, cases qui se cochent
+let introT = null;
+function skinIntro() {
+  const sec = curSection();
+  if (!isTerm() || !sec || $('main').hidden) return;
+  skinDecorate(sec);
+  if (calm.matches) return;
+  [...sec.querySelectorAll('.t-hero, .t-segs, .sheet, .tiles, .t-check, .t-note')].forEach((el, i) => {
+    el.style.setProperty('--i', Math.min(i, 10));
+    el.querySelectorAll('.list li, tr, .tile, .lr, .t-check li').forEach((r, j) => r.style.setProperty('--j', Math.min(j, 14)));
+  });
+  sec.classList.remove('t-intro'); void sec.offsetWidth; sec.classList.add('t-intro');
+  countUp(sec.querySelectorAll('.tile .rv, #tTitle em, #tSub em, .t-tag b, .t-legend .v, .t-segs .lb b'));
+  $('tCheck')?.classList.remove('done'); clearTimeout(introT);
+  introT = setTimeout(() => { sec.classList.remove('t-intro'); const c = $('tCheck'); if (c && !c.querySelector('.ko')) c.classList.add('done'); }, 3600);
+  spot.pauseUntil = Date.now() + 2600;
+}
+function countUp(nodes) {
+  const re = /\d(?:[\d  ]|\s(?=\d{3}))*(?:,\d+)?/g, jobs = [];
+  for (const el of nodes) {
+    const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let n;
+    while ((n = w.nextNode())) {
+      const src = n.textContent; if (!/\d/.test(src)) continue;
+      const parts = []; let last = 0, m;
+      re.lastIndex = 0;
+      while ((m = re.exec(src))) { parts.push(src.slice(last, m.index)); const t = m[0], dec = (t.split(',')[1] || '').length;
+        parts.push({ v: parseFloat(t.replace(/[\s  ]/g, '').replace(',', '.')), f: new Intl.NumberFormat('fr-FR', { minimumFractionDigits: dec, maximumFractionDigits: dec }) }); last = m.index + t.length; }
+      parts.push(src.slice(last)); jobs.push({ n, src, parts });
+    }
+  }
+  if (!jobs.length) return;
+  const t0 = performance.now(), D = 1100;
+  const step = now => {
+    const t = Math.min(1, (now - t0) / D), e = 1 - Math.pow(1 - t, 3);
+    for (const j of jobs) j.n.textContent = t >= 1 ? j.src : j.parts.map(p => typeof p === 'string' ? p : p.f.format(p.v * e)).join('');
+    if (t < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+// 🔦 projecteur : il se pose sur une ligne, puis une autre, panneau après panneau ; le reste s’estompe un peu.
+// Il se met en pause quelques secondes dès que tu touches, fais défiler ou tapes quelque chose.
+const SPOT_MS = 1700, spot = { sheet: 0, row: 0, n: 0, pauseUntil: 0, sig: '' };
+const onScreen = el => { const b = el.getBoundingClientRect(); return b.height > 0 && b.top >= 50 && b.bottom <= innerHeight - 4; };
+const spotRows = el => [...el.querySelectorAll('.list li:not(.empty), tr:has(td), .tile')].filter(onScreen).slice(0, 9);
+const spotSheets = sec => [...sec.querySelectorAll('.sheet, .tiles, .t-check')].filter(s => s.offsetParent && spotRows(s).length);
+function spotClear(keepMarks) {
+  document.querySelectorAll('.t-focus').forEach(e => e.classList.remove('t-focus'));
+  document.querySelectorAll('.t-on').forEach(e => e.classList.remove('t-on'));
+  if (keepMarks) return;
+  document.querySelectorAll('.t-spot').forEach(e => e.classList.remove('t-spot'));
+  document.querySelectorAll('.t-legend .lr.on, .t-segs .sg.on').forEach(e => e.classList.remove('on'));
+}
+function spotApply() {
+  const sec = curSection();
+  if (!isTerm() || calm.matches || !sec || ['controle', 'base'].includes(sec.id) || Date.now() < spot.pauseUntil) return spotClear();
+  const sheets = spotSheets(sec); if (!sheets.length) return spotClear();
+  const sh = sheets[spot.sheet % sheets.length], rows = spotRows(sh), row = rows[spot.row % rows.length];
+  spotClear(true);
+  sec.classList.add('t-spot'); sh.classList.add('t-on'); row.classList.add('t-focus');
+  // la ligne du classement et le segment de la même couleur s’allument aussi (le segment garde sa barre qui avance)
+  const k = (spot.sheet % sheets.length) % 5;
+  document.querySelectorAll('#tLegend .lr').forEach((e, i) => e.classList.toggle('on', i === k));
+  document.querySelectorAll('#tSegs .sg').forEach((e, i) => {
+    if (i !== k) return e.classList.remove('on');
+    if (!e.classList.contains('on')) { e.style.setProperty('--spot', (SPOT_MS * 2) + 'ms'); e.classList.add('on'); }
+  });
+}
+function spotNext() {
+  if (!isTerm() || document.hidden || $('main').hidden) return;
+  const sec = curSection(), sheets = sec ? spotSheets(sec) : [];
+  if (sheets.length) {
+    if (++spot.n > 2) { spot.n = 1; spot.sheet = (spot.sheet + 1) % sheets.length; spot.row = spot.sheet === 0 ? spot.row + 1 : spot.row; }
+    else if (spot.n === 2) spot.row += 2;
+  }
+  spotApply();
+}
+setInterval(spotNext, SPOT_MS);
+for (const ev of ['pointerdown', 'wheel', 'keydown', 'touchstart']) addEventListener(ev, () => { if (isTerm()) { spot.pauseUntil = Date.now() + 7000; spotClear(); } }, { passive: true });
+function skinAfterRender() { if (!isTerm()) return; const sec = curSection(); skinDecorate(sec); spotApply(); }
+
 /* =============== Affichage =============== */
 function render() {
   if (!M || !G) return;
   const t = TABS.find(id => !$(id).hidden) || 'apercu';
   try { ({ apercu: rOverview, controle: rControl, partie: rGame, joueurs: rPlayers, appareils: rDevices, economie: rEco, salon: rChat, pilote: rPilot, securite: rSecurity, serveur: rServer, base: rBase, journal: rJournal })[t](); }
   catch (e) { console.error(e); }
+  try { skinAfterRender(); } catch (e) { console.error(e); }
   $('foot').innerHTML = `Le Cube ${esc(G.game_version || '')} · Node ${esc(M.node || '')} · ${esc(M.hostname || '')}<br>
     Données lues en direct sur ton PC (toutes les 5 s pour le serveur, toutes les 20 s pour la partie). Seul l’onglet 🎛️ Contrôle modifie le jeu, et seulement quand tu cliques.`;
 }
@@ -739,6 +1048,7 @@ function rOverview() {
   $('nowList').innerHTML = li(uniq.map(c => { const s = stats.get(c.id); return [`<span class="dot"></span><b>${esc(c.pseudo)}</b> <span class="muted">· ${esc(c.device || '')}${c.country ? ' · ' + esc(c.country) : ''}</span>`,
     `${dur((Date.now() - c.since) / 1000)}${s?.cps ? ` · ${fmt1(s.cps)} coups/s` : ''}`]; }));
   $('actList').innerHTML = li((G.activity_last || []).slice(0, 14).map(a => [esc(a.text), ago(a.at)]));
+  termOverview({ g, T, D, left, perDay, eta, ps });
 }
 
 function dayTotals() {             // [[jour, blocs]] depuis le film du cube
