@@ -1629,7 +1629,8 @@ $$;
 -- niveau « effectif » : le freinage d'urgence du pilote impose « strict » par-dessus le réglage choisi
 create or replace function public._art_level() returns text
 language sql stable security definer set search_path = public as $$
-  select case when coalesce((art_rules->>'emerg')::boolean, false) and coalesce(nullif(art_rules->>'level', ''), 'off') <> 'off' then 'strict'
+  -- le réglage personnalisé de l'organisateur reste toujours en place, même pendant un freinage d'urgence
+  select case when coalesce((art_rules->>'emerg')::boolean, false) and coalesce(nullif(art_rules->>'level', ''), 'off') not in ('off', 'custom') then 'strict'
               else coalesce(nullif(art_rules->>'level', ''), 'off') end from public.game where id = 1;
 $$;
 -- Règle par niveau et par catégorie : { cd: recharge (s) par joueur, use_p: utilisations/joueur/jour, use_s: utilisations/serveur/jour, get: achetés+fabriqués/joueur/jour }

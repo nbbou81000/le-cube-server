@@ -1571,7 +1571,7 @@ function ecoRegHtml(rules) {
       ${fld(t, 'cd', 'Recharge (secondes)', s.cd)}${fld(t, 'use_p', 'Utilisations/jour par joueur', s.use_p)}
       ${fld(t, 'use_s', 'Utilisations/jour (serveur)', s.use_s)}${fld(t, 'get', 'Achetés+fabriqués/jour/joueur', s.get)}</div>`; }).join('')}
     <div class="acts"><button class="btn" id="ckArSave">💾 Enregistrer le personnalisé</button></div></div>` : '';
-  return `<p class="note">Recharge entre deux utilisations, utilisations par jour (par joueur et pour tout le serveur) et nombre par jour (achat + atelier) pour les artefacts forts, très forts et légendaires.${rules.emerg ? ' <b>🚨 Freinage d’urgence du pilote en cours : strict.</b>' : ''}</p>
+  return `<p class="note">Recharge entre deux utilisations, utilisations par jour (par joueur et pour tout le serveur) et nombre par jour (achat + atelier) pour les artefacts forts, très forts et légendaires.${rules.emerg ? (rules.level === 'custom' ? ' <b>🚨 Freinage d’urgence en cours : ta régulation personnalisée reste appliquée.</b>' : ' <b>🚨 Freinage d’urgence du pilote en cours : strict.</b>') : ''}</p>
     <div class="seg">${presets.map(([k, t]) => `<button type="button" data-lv="${k}" aria-pressed="${rules.level === k}">${t}</button>`).join('')}</div>
     <div style="margin-top:8px">${ecoRulesSummary(rules)}</div>
     <p class="note">Modérés : forts 1 min et 10/jour · très forts 5 min et 3/jour · légendaires 30 min et 1/jour.<br>Stricts : forts 3 min et 5/jour · très forts 15 min, 3/jour/joueur et 8/jour serveur · légendaires 1 h, 1/jour/joueur et 3/jour serveur.</p>
