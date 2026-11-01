@@ -61,6 +61,17 @@
   #invBar button{font-size:20px;padding:5px 10px;position:relative;background:#16131cdd}
   #invBar button b{position:absolute;right:-5px;top:-7px;background:var(--gold);color:#000;font-size:10px;border-radius:8px;padding:1px 5px}
   #invBar button.on{border-color:var(--gold);box-shadow:0 0 14px #ffc83d99}
+  /* 🖐️ anti-clic involontaire : 1er toucher pendant qu'on tape le cube = le bouton demande une confirmation */
+  .tapGuard{position:relative;outline:2px solid var(--gold)!important;outline-offset:2px;animation:tgPulse .5s ease-in-out infinite alternate}
+  .tapGuard::after{content:attr(data-tg);position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);white-space:nowrap;background:#000d;color:var(--gold);
+    border:1px solid #ffc83d88;border-radius:8px;padding:3px 8px;font-size:11px;font-weight:700;pointer-events:none;z-index:9}
+  @keyframes tgPulse{to{box-shadow:0 0 16px #ffc83daa}}
+  #invBar.folded button.art{display:none}
+  #invBar button.fold{font-size:15px;padding:6px 11px}
+  /* 🖐️ anti-clic : pendant qu'on frappe le cube, les boutons du bas laissent passer les touchers vers le cube */
+  #invBar button,#tools button{transition:opacity .35s}
+  body.hitting #invBar,body.hitting #tools,body.hitting #invBar *,body.hitting #tools *{pointer-events:none!important}
+  body.hitting #invBar button,body.hitting #tools button{opacity:.32;transition:opacity .12s}
   #tools{position:fixed;right:8px;left:8px;bottom:calc(10px + env(safe-area-inset-bottom));display:flex;gap:5px;justify-content:flex-end;z-index:3}
   #tools button{background:#16131cdd;font-size:17px;padding:8px 10px}
   #bRecenter{position:fixed;right:10px;bottom:calc(118px + env(safe-area-inset-bottom));z-index:3;width:46px;height:46px;border-radius:50%;padding:0;font-size:22px;
@@ -2616,7 +2627,7 @@ function endPointer(e) {
   const dx = e.clientX - down.x, dy = e.clientY - down.y;
   if (dx * dx + dy * dy < 64 && performance.now() - down.t < 450) {
     const i = pickBlock(e.clientX, e.clientY);
-    if (i >= 0) { if (armed) useArtifact(armed, i); else playerHit(i); }
+    if (i >= 0) { hitStreak(); if (armed) useArtifact(armed, i); else playerHit(i); }
   }
   down = null;
 }
@@ -2976,18 +2987,42 @@ let helpHidden = false;
 function hideHelp() { if (helpHidden) return; helpHidden = true; $('help').style.opacity = '0'; }
 setTimeout(hideHelp, 8000);
 
+/* ---------- 🖐️ Anti-clic involontaire sur les barres du bas ----------
+   Tant qu'on frappe le cube (à la souris comme au doigt), les boutons du bas (artefacts, sac, boutique…) pâlissent et
+   ne réagissent plus : un toucher ou un clic qui tombe dessus passe au travers et frappe le bloc en dessous, comme si
+   les boutons n'étaient pas là. Ils se rallument dès qu'on arrête de frapper un court instant (1,2 s, ou 2 s en « fort »).
+   Tourner ou zoomer ne bloque rien : seule une vraie frappe compte. Réglable dans ⚙️. */
+let lockTimer = null;
+const tgMs = () => settings.tapGuard === false || settings.tapGuardMs === 0 ? 0 : (settings.tapGuardMs || 1200);
+function hitStreak() {
+  const ms = tgMs(); if (!ms || TV || REPLAY) return;
+  document.body.classList.add('hitting');
+  clearTimeout(lockTimer); lockTimer = setTimeout(() => document.body.classList.remove('hitting'), ms);
+}
+let invOpen = false;                                   // barre repliée (réglage ⚙️) : ouverte à la demande avec ⚡
 function renderInvBar() {
   const bar = $('invBar'); bar.innerHTML = '';
-  for (const [k, A] of Object.entries(ARTIFACTS)) {
-    const q = inventory[k] || 0;
-    if (!q) continue;
-    const b = document.createElement('button');
+  const fold = !!settings.foldArts, list = Object.entries(ARTIFACTS).filter(([k]) => inventory[k] > 0);
+  bar.classList.toggle('folded', fold && !invOpen && !armed);
+  if (fold && list.length) {
+    const f = document.createElement('button'); f.className = 'fold';
+    const n = list.reduce((a, [k]) => a + inventory[k], 0);
+    f.innerHTML = invOpen || armed ? '✕' : `⚡<b>${n}</b>`;
+    f.title = invOpen ? L('Replier les artefacts', 'Fold the artifacts') : L('Mes artefacts', 'My artifacts');
+    f.onclick = () => { invOpen = !invOpen; renderInvBar(); };
+    bar.appendChild(f);
+  }
+  for (const [k, A] of list) {
+    const q = inventory[k];
+    const b = document.createElement('button'); b.className = 'art';
     b.innerHTML = `${A.icon}<b>${q}</b>`;
     b.title = A.name;
     if (armed === k) b.classList.add('on');
     b.onclick = () => {
       if (armed === k) return disarm();
+      if (fold) invOpen = false;                       // repliée : elle se referme après le choix
       if (A.target) arm(k); else useArtifact(k, null);
+      renderInvBar();
     };
     bar.appendChild(b);
   }
@@ -4664,6 +4699,11 @@ function openSettings() {
     <label class="switch"><span>${L('Ambiance des couches (vent de la glace, grondement de la lave, cristal qui chante)', 'Layer ambience (ice wind, lava rumble, singing crystal)')}</span><input type="checkbox" class="chk" id="sAmb" ${settings.ambient !== false ? 'checked' : ''}></label></div>
     ${HOME_SERVER ? `<div class="sec" id="sPush"><h3>${L('🔔 Notifications', '🔔 Notifications')}</h3><p class="muted">${L('Chargement…', 'Loading…')}</p></div>` : ''}
     <div class="sec"><h3>${L('🎮 Commandes et affichage', '🎮 Controls and display')}</h3>
+    <div style="margin:10px 0 4px"><div style="font-size:14px">${L('🖐️ Anti-clic involontaire', '🖐️ Accidental-click guard')}</div>
+      <div class="muted" style="font-size:12px;margin:2px 0 6px">${L('Pendant que tu frappes le cube, les boutons du bas pâlissent et laissent passer tes clics vers le cube. Ils se rallument dès que tu t’arrêtes un instant.', 'While you’re hitting the cube, the bottom buttons fade and let your clicks through to the cube. They come back as soon as you pause for a moment.')}</div>
+      <select id="sTapGuard" style="width:100%">${[[0, L('Désactivé', 'Off')], [1200, L('Normal · boutons bloqués 1,2 s après chaque frappe', 'Normal · buttons locked 1.2 s after each hit')], [2000, L('Fort · 2 s (si tu cliques encore par erreur)', 'Strong · 2 s (if you still misclick)')]]
+        .map(([v, t]) => `<option value="${v}" ${tgMs() === v ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+    <label class="switch"><span>${L('⚡ Replier la barre des artefacts (un seul bouton ⚡ pour l’ouvrir)', '⚡ Fold the artifact bar (a single ⚡ button opens it)')}</span><input type="checkbox" class="chk" id="sFoldArts" ${settings.foldArts ? 'checked' : ''}></label>
     <label>${L('Sensibilité de rotation', 'Rotation sensitivity')}</label><input type="range" id="sRot" min="0.3" max="2" step="0.05" value="${settings.rot}">
     <label>${L('Sensibilité du zoom (molette et pincement)', 'Zoom sensitivity (wheel and pinch)')}</label><input type="range" id="sZoom" min="0.3" max="2" step="0.05" value="${settings.zoom}">
     <label>${L('Qualité graphique', 'Graphics quality')}</label>
@@ -4685,6 +4725,8 @@ function openSettings() {
   $('sFr').onclick = () => EN && setLang('fr');
   $('sEn').onclick = () => !EN && setLang('en');
   $('sRot').oninput = e => { settings.rot = +e.target.value; saveSettings(); };
+  $('sTapGuard').onchange = e => { const v = +e.target.value; settings.tapGuardMs = v; settings.tapGuard = v > 0; if (!v) document.body.classList.remove('hitting'); saveSettings(); };
+  $('sFoldArts').onchange = e => { settings.foldArts = e.target.checked; invOpen = false; saveSettings(); renderInvBar(); };
   $('sZoom').oninput = e => { settings.zoom = +e.target.value; saveSettings(); };
   $('sSound').onchange = e => { settings.sound = e.target.checked; saveSettings(); if (settings.sound) { unlockAudio(); sfx('coin'); } };
   $('sSfxV').oninput = e => { settings.sfxVol = +e.target.value; saveSettings(); setVolumes(); };
